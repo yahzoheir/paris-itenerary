@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { Button } from "../ui/Button";
+import { Card, CardBody, Badge } from "../ui/Card";
 
 type PlanRow = {
   id: string;
@@ -9,7 +11,20 @@ type PlanRow = {
   date: string;
   created_at: string;
   is_public: boolean;
+  start_time: string | null;
+  end_time: string | null;
+  people_count: number | null;
 };
+
+const CARD_IMAGES = [
+  "/paris_street_card_bg_1769713095170.png",
+  "/paris_card_cafe_1769713467791.png",
+  "/paris_card_eiffel_1769713481681.png",
+  "/paris_card_seine_1769713494515.png",
+  "/paris_card_louvre_1769713510168.png",
+  "/paris_card_montmartre_1769713523160.png",
+  "/paris_card_metro_1769713535929.png"
+];
 
 export default function PlansPage() {
   const [loading, setLoading] = useState(true);
@@ -37,7 +52,7 @@ export default function PlansPage() {
 
     const { data, error } = await supabase
       .from("plans")
-      .select("id, city, date, created_at, is_public")
+      .select("id, city, date, created_at, is_public, start_time, end_time, people_count")
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -131,7 +146,7 @@ export default function PlansPage() {
 
     // Remove plan from UI immediately
     setPlans((prevPlans) => prevPlans.filter((p) => p.id !== deleteTargetId));
-    
+
     // Close modal
     setDeleteTargetId(null);
     setDeleteTargetLabel("");
@@ -156,85 +171,124 @@ export default function PlansPage() {
   }, [deleteTargetId]);
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-5 py-10 text-zinc-900">
-      <div className="mx-auto w-full max-w-md">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">My plans</h1>
-            <p className="mt-1 text-sm text-zinc-600">
-              {email ? `Logged in as ${email}` : ""}
-            </p>
+    <main className="min-h-screen bg-[#fafafa] text-zinc-900 pb-20">
+      {/* Header */}
+      <div className="bg-white border-b border-zinc-200 sticky top-0 z-30">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <a href="/" className="font-semibold text-lg tracking-tight hover:opacity-70 transition-opacity">AItinerary.</a>
+            <span className="text-zinc-300">/</span>
+            <span className="font-medium">My Plans</span>
           </div>
-
-          <button
-            onClick={logout}
-            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium"
-          >
-            Logout
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-zinc-500 hidden sm:block">{email}</span>
+            <Button onClick={logout} variant="ghost" size="sm">Logout</Button>
+          </div>
         </div>
+      </div>
 
-        <div className="mt-4 flex gap-2">
-          <a
-            href="/app"
-            className="flex-1 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-center text-sm font-medium"
-          >
-            Back
-          </a>
-          <a
-            href="/plans/new"
-            className="flex-1 rounded-xl bg-zinc-900 px-4 py-2 text-center text-sm font-medium text-white"
-          >
-            New plan
-          </a>
-        </div>
-
+      <div className="max-w-6xl mx-auto px-6 py-12">
         {status && (
-          <p className="mt-3 text-sm text-zinc-700">
+          <div className="mb-8 p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm animate-in slide-in-from-top-2">
             {status}
-          </p>
+          </div>
         )}
 
-        <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4">
-          {loading ? (
-            <p className="text-sm text-zinc-600">Loading...</p>
-          ) : plans.length === 0 ? (
-            <p className="text-sm text-zinc-600">No plans yet. Create one.</p>
-          ) : (
-            <ul className="divide-y divide-zinc-100">
-              {plans.map((p) => (
-                <li key={p.id} className="py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <a href={`/plan/${p.id}`} className="flex-1 block">
-                      <div className="flex items-center justify-between">
-                        <div className="font-medium">
-                          {p.city} — {p.date}
-                        </div>
-                        <div className="text-xs text-zinc-500">
-                          {p.is_public ? "public" : "private"}
-                        </div>
-                      </div>
-                      <div className="mt-1 text-xs text-zinc-500">
-                        {new Date(p.created_at).toLocaleString()}
-                      </div>
-                    </a>
-                    <button
-                      onClick={(e) => handleDeleteClick(e, p)}
-                      className="px-3 py-1 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                      aria-label="Delete plan"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-zinc-900 tracking-tight">Your Trips</h1>
+            <p className="text-zinc-500 mt-2 font-medium">Manage your upcoming adventures and past memories.</p>
+          </div>
+          <div className="hidden md:block">
+            {/* Desktop secondary action if needed, or keeping it clean */}
+          </div>
         </div>
 
-        <p className="mt-3 text-xs text-zinc-500">
-          Next we'll build <span className="font-mono">/plan/[id]</span>.
-        </p>
+        {loading ? (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-64 rounded-2xl bg-zinc-100 animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* 1. Create New Plan Card */}
+            <a
+              href="/plans/new"
+              className="group relative flex flex-col items-center justify-center p-8 h-full min-h-[320px] rounded-2xl border-2 border-dashed border-zinc-300 hover:border-blue-500 hover:bg-blue-50/30 transition-all duration-300 text-center"
+            >
+              <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+              </div>
+              <h3 className="text-lg font-bold text-zinc-900 group-hover:text-blue-700 transition-colors">Plan a new trip</h3>
+              <p className="text-sm text-zinc-500 mt-1 max-w-[200px] leading-relaxed">Start from scratch or let AI help you organize your perfect stay.</p>
+            </a>
+
+            {/* 2. Existing Plans */}
+            {plans.map((p, i) => (
+              <a key={p.id} href={`/plan/${p.id}`} className="group block focus:outline-none h-full">
+                <Card className="h-full flex flex-col hover:shadow-xl hover:shadow-zinc-200/50 hover:border-zinc-300 transition-all duration-300 group-hover:-translate-y-1 active:scale-[0.99] relative group-focus:ring-2 group-focus:ring-zinc-900 group-focus:ring-offset-2 overflow-hidden bg-white">
+
+                  {/* Delete Button (Visible on Hover) */}
+                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                    <button
+                      onClick={(e) => handleDeleteClick(e, p)}
+                      className="p-2 bg-white/90 backdrop-blur rounded-full text-zinc-400 hover:text-red-600 hover:bg-red-50 border border-zinc-200/50 shadow-sm transition-colors"
+                      title="Delete plan"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+
+                  {/* Card Header (Image) */}
+                  <div className="h-48 bg-zinc-200 border-b border-zinc-100 relative overflow-hidden group-hover:opacity-90 transition-opacity">
+                    <img
+                      src={CARD_IMAGES[i % CARD_IMAGES.length]}
+                      className="w-full h-full object-cover scale-105 group-hover:scale-110 transition-transform duration-700"
+                      alt=""
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/5 to-transparent" />
+
+                    <div className="absolute bottom-0 left-0 p-6 w-full">
+                      <h3 className="text-3xl font-bold text-white leading-none tracking-tighter mb-1 drop-shadow-sm truncate">
+                        {(p as any).preferences?.title || p.city}
+                      </h3>
+                      <p className="text-white/90 font-medium text-sm flex items-center gap-2 drop-shadow-sm">
+                        {(p as any).preferences?.title && <span className="opacity-80">{p.city} • </span>}
+                        {new Date(p.date).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Card Body */}
+                  <CardBody className="space-y-5 p-6 flex-1 flex flex-col justify-end">
+                    <div className="flex items-center gap-3 text-sm text-zinc-600">
+                      <div className="flex items-center gap-1.5 bg-zinc-50 px-3 py-1.5 rounded-md border border-zinc-100">
+                        <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span className="font-semibold text-zinc-700">{p.start_time?.slice(0, 5) || "10:00"} - {p.end_time?.slice(0, 5) || "18:00"}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-zinc-500 px-2">
+                        <svg className="w-4 h-4 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        <span>{p.people_count ?? 1}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-4 border-t border-zinc-50 mt-auto">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${p.is_public
+                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                        : 'bg-zinc-100 text-zinc-400 border border-zinc-200'
+                        }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${p.is_public ? 'bg-emerald-500' : 'bg-zinc-400'}`}></div>
+                        {p.is_public ? "Public" : "Private"}
+                      </span>
+                    </div>
+                  </CardBody>
+                </Card>
+              </a>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}
@@ -243,40 +297,34 @@ export default function PlansPage() {
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           onClick={handleDeleteCancel}
         >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          
-          {/* Modal */}
+          <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm animate-in fade-in duration-200" />
+
           <div
-            className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-md"
+            className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-semibold mb-2">Delete plan?</h2>
-            <p className="text-sm text-zinc-600 mb-6">
-              This will permanently delete <span className="font-medium">{deleteTargetLabel}</span>. This action cannot be undone.
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-4 text-red-600">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            </div>
+
+            <h2 className="text-xl font-semibold text-zinc-900 mb-2">Delete plan?</h2>
+            <p className="text-sm text-zinc-500 mb-6 leading-relaxed">
+              Are you sure you want to delete <span className="font-medium text-zinc-900">{deleteTargetLabel}</span>? This action cannot be undone.
             </p>
 
             {deleteError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-700">{deleteError}</p>
+              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
+                {deleteError}
               </div>
             )}
 
-            <div className="flex gap-3">
-              <button
-                onClick={handleDeleteCancel}
-                disabled={isDeleting}
-                className="flex-1 px-4 py-2 bg-zinc-200 text-zinc-700 rounded-lg hover:bg-zinc-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-              >
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="secondary" onClick={handleDeleteCancel} disabled={isDeleting}>
                 Cancel
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={isDeleting}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-              >
-                {isDeleting ? "Deleting..." : "Delete permanently"}
-              </button>
+              </Button>
+              <Button variant="danger" onClick={handleDeleteConfirm} isLoading={isDeleting}>
+                Delete
+              </Button>
             </div>
           </div>
         </div>

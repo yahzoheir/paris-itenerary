@@ -2,8 +2,9 @@
 
 import { useState, useMemo, type FormEvent } from "react";
 import type { ItineraryItem } from "@/types/itinerary";
-// import { supabase } from "@/app/lib/supabaseClient"; // Removed - using Server Action
 import { saveItineraryItems } from "./actions";
+import { Button } from "@/app/ui/Button";
+import { Card, CardBody } from "@/app/ui/Card";
 import {
   DndContext,
   closestCenter,
@@ -13,6 +14,12 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
+
+// NOTE: This component currently implements a "Location" text input.
+// To fully enable Google Places Autocomplete:
+// 1. Install 'use-places-autocomplete' or similar library.
+// 2. Add your Google Maps API key to .env.local (NEXT_PUBLIC_GOOGLE_MAPS_KEY).
+// 3. Replace the "Location" input signal with the autocomplete component.
 import {
   arrayMove,
   SortableContext,
@@ -27,6 +34,7 @@ interface ItineraryEditorProps {
   initialItems: ItineraryItem[];
   planStartTime: string | null;
   planEndTime: string | null;
+  readOnly?: boolean; // New prop
 }
 
 type ScheduledBlock =
@@ -129,8 +137,10 @@ type DraftItem = {
   startTime: string;
   durationMin: string;
   notes: string;
+  placeName: string;
 };
 
+// --- Subcomponent: SortableItem ---
 function SortableItem({
   block,
   isReorderMode,
@@ -142,6 +152,7 @@ function SortableItem({
   onSave,
   onCancel,
   onDraftChange,
+  readOnly,
 }: {
   block: Extract<ScheduledBlock, { type: "activity" }>;
   isReorderMode: boolean;
@@ -153,6 +164,7 @@ function SortableItem({
   onSave: (id: string) => void;
   onCancel: (id: string) => void;
   onDraftChange: (updates: Partial<DraftItem>) => void;
+  readOnly?: boolean;
 }) {
   const {
     attributes,
@@ -166,7 +178,8 @@ function SortableItem({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : 1,
+    opacity: isDragging ? 0.8 : 1,
   };
 
   const isEditing = editingId === block.item.id;
@@ -180,7 +193,8 @@ function SortableItem({
       currentDraft.title.trim() !== item.title ||
       (currentDraft.startTime.trim() || "") !== (item.fixedStartTime || item.startTime || "") ||
       (currentDraft.durationMin.trim() || "") !== (item.durationMin?.toString() || "") ||
-      (currentDraft.notes.trim() || "") !== (item.notes || "")
+      (currentDraft.notes.trim() || "") !== (item.notes || "") ||
+      (currentDraft.placeName.trim() || "") !== (item.place?.name || "")
     );
   };
 
@@ -196,112 +210,84 @@ function SortableItem({
 
   if (isEditing && currentDraft) {
     return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        className="border border-gray-300 rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
-      >
-        <div className="space-y-3">
-          <div>
-            <label
-              htmlFor={`edit-title-${block.item.id}`}
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Title *
-            </label>
-            <input
-              type="text"
-              id={`edit-title-${block.item.id}`}
-              required
-              value={currentDraft.title}
-              onChange={(e) =>
-                onDraftChange({ ...currentDraft, title: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter title"
-            />
-          </div>
+      <div ref={setNodeRef} style={style} className="relative z-20">
+        <Card className="border-blue-200 shadow-lg ring-2 ring-blue-100">
+          <CardBody className="space-y-4 bg-white/50">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Title</label>
+              <input
+                type="text"
+                required
+                value={currentDraft.title}
+                onChange={(e) => onDraftChange({ ...currentDraft, title: e.target.value })}
+                className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                placeholder="Visit the Louvre"
+              />
+            </div>
 
-          <div>
-            <label
-              htmlFor={`edit-startTime-${block.item.id}`}
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Start time (HH:MM)
-            </label>
-            <input
-              type="text"
-              id={`edit-startTime-${block.item.id}`}
-              value={currentDraft.startTime}
-              onChange={(e) =>
-                onDraftChange({ ...currentDraft, startTime: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="09:00 (optional)"
-              pattern="^([0-1][0-9]|2[0-3]):[0-5][0-9]$"
-            />
-          </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Location</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-4 w-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  value={currentDraft.placeName}
+                  onChange={(e) => onDraftChange({ ...currentDraft, placeName: e.target.value })}
+                  className="w-full pl-9 pr-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                  placeholder="Add a location..."
+                />
+              </div>
+            </div>
 
-          <div>
-            <label
-              htmlFor={`edit-durationMin-${block.item.id}`}
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Duration (minutes)
-            </label>
-            <input
-              type="number"
-              id={`edit-durationMin-${block.item.id}`}
-              min="1"
-              value={currentDraft.durationMin}
-              onChange={(e) =>
-                onDraftChange({ ...currentDraft, durationMin: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="60"
-            />
-          </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1">Fixed Start Time</label>
+                <input
+                  type="text"
+                  value={currentDraft.startTime}
+                  onChange={(e) => onDraftChange({ ...currentDraft, startTime: e.target.value })}
+                  className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                  placeholder="HH:MM (Optional)"
+                  pattern="^([0-1][0-9]|2[0-3]):[0-5][0-9]$"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1">Duration (min)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={currentDraft.durationMin}
+                  onChange={(e) => onDraftChange({ ...currentDraft, durationMin: e.target.value })}
+                  className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                  placeholder="60"
+                />
+              </div>
+            </div>
 
-          <div>
-            <label
-              htmlFor={`edit-notes-${block.item.id}`}
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Notes
-            </label>
-            <textarea
-              id={`edit-notes-${block.item.id}`}
-              value={currentDraft.notes}
-              onChange={(e) =>
-                onDraftChange({ ...currentDraft, notes: e.target.value })
-              }
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              placeholder="Optional notes"
-            />
-          </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1">Notes</label>
+              <textarea
+                value={currentDraft.notes}
+                onChange={(e) => onDraftChange({ ...currentDraft, notes: e.target.value })}
+                rows={2}
+                className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900 resize-none"
+                placeholder="Notes..."
+              />
+            </div>
 
-          <p className="text-xs text-gray-500 italic">
-            Changes won't be saved unless you tap Save.
-          </p>
-
-          <div className="flex gap-2">
-            <button
-              onClick={() => onSave(block.item.id)}
-              disabled={isSaving || !currentDraft.title.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-            >
-              {isSaving ? "Saving..." : "Save"}
-            </button>
-            <button
-              onClick={handleCancel}
-              disabled={isSaving}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="ghost" size="sm" onClick={handleCancel} disabled={isSaving}>Cancel</Button>
+              <Button size="sm" onClick={() => onSave(block.item.id)} disabled={isSaving || !currentDraft.title.trim()}>
+                {isSaving ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
       </div>
     );
   }
@@ -310,86 +296,119 @@ function SortableItem({
     <div
       ref={setNodeRef}
       style={style}
-      className="border border-gray-300 rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
+      className={`relative group transition-all duration-200 ${isReorderMode ? 'cursor-grab active:cursor-grabbing hover:scale-[1.01]' : ''}`}
+      {...(isReorderMode ? { ...attributes, ...listeners } : {})}
     >
-      <div className="flex items-start justify-between gap-4">
-        {isReorderMode && (
-          <div
-            {...attributes}
-            {...listeners}
-            className="cursor-grab active:cursor-grabbing touch-none flex items-center justify-center w-6 h-6 text-gray-400 hover:text-gray-600"
-            aria-label="Drag handle"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 8h16M4 16h16"
-              />
-            </svg>
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-gray-900">{block.item.title}</h3>
-          <p className="text-sm text-gray-600 mt-1">
-            {block.computedStartTime} – {block.computedEndTime}
-            {block.item.fixedStartTime && (
-              <span className="ml-2 text-xs text-blue-600">(pinned)</span>
-            )}
-          </p>
-          {block.item.notes && (
-            <p className="text-sm text-gray-500 mt-1">{block.item.notes}</p>
-          )}
+      {/* Timeline connector line */}
+      <div className="absolute left-6 top-16 bottom-0 w-px bg-zinc-100 -z-10 group-last:hidden" />
+
+      <div className="flex gap-4">
+        {/* Time Column */}
+        <div className="w-12 pt-4 text-xs font-medium text-zinc-400 text-right shrink-0">
+          {block.computedStartTime}
         </div>
-        {!isReorderMode && (
-          <div className="flex flex-col gap-1">
-            <button
-              onClick={() => onEdit(block.item.id, block.item)}
-              disabled={isSaving}
-              className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Edit item"
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => onDelete(block.item.id)}
-              disabled={isSaving}
-              className="px-3 py-1 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Delete item"
-            >
-              Delete
-            </button>
-          </div>
-        )}
+
+        {/* Card */}
+        <div className="flex-1 pb-6">
+          <Card className="hover:border-zinc-300 transition-colors bg-white">
+            <div className="p-4 flex items-start gap-4">
+              {/* Reorder Handle Icon (Visible in Reorder Mode) */}
+              {isReorderMode && (
+                <div className="mt-1 text-zinc-300">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16" /></svg>
+                </div>
+              )}
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between">
+                  <h3 className="font-semibold text-zinc-900 truncate">{block.item.title}</h3>
+                  {block.item.fixedStartTime && (
+                    <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700">Pinned</span>
+                  )}
+                </div>
+
+                <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
+                  <span>{block.durationMin} min</span>
+                  {block.item.place?.name && (
+                    <>
+                      <span>•</span>
+                      <span className="flex items-center gap-1 text-zinc-600">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        {block.item.place.name}
+                      </span>
+                    </>
+                  )}
+                  {block.item.notes && (
+                    <>
+                      <span>•</span>
+                      <span className="truncate max-w-[150px]">{block.item.notes}</span>
+                    </>
+                  )}
+                </div>
+                {block.item.mapsUrl && (
+                  <>
+                    <span>•</span>
+                    <a
+                      href={block.item.mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      Open in Maps
+                    </a>
+                  </>
+                )}
+              </div>
+
+
+              {/* Action Buttons (Hidden in Reorder Mode or ReadOnly) */}
+              {!isReorderMode && !readOnly && (
+                <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => onEdit(block.item.id, block.item)}
+                    className="p-1.5 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                    title="Edit"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                  </button>
+                  <button
+                    onClick={() => onDelete(block.item.id)}
+                    className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    title="Delete"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
 }
 
+// --- Main Component ---
 export default function ItineraryEditor({
   planId,
   initialItems,
   planStartTime,
   planEndTime,
+  readOnly = false,
 }: ItineraryEditorProps) {
   const [items, setItems] = useState<ItineraryItem[]>(initialItems);
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isReorderMode, setIsReorderMode] = useState(false);
-  const [reorderStartItems, setReorderStartItems] = useState<ItineraryItem[]>(
-    []
-  );
+  const [reorderStartItems, setReorderStartItems] = useState<ItineraryItem[]>([]);
   const [newItem, setNewItem] = useState({
     title: "",
     fixedStartTime: "",
     durationMin: "",
     notes: "",
+    placeName: "",
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftItem | null>(null);
@@ -411,14 +430,16 @@ export default function ItineraryEditor({
     })
   );
 
-
-
   const handleSave = async (updatedItems: ItineraryItem[]) => {
+    // Optimistic Update
+    const previousItems = items;
+    setItems(updatedItems);
     setIsSaving(true);
+
     try {
       await saveItineraryItems(planId, updatedItems);
-
-      setItems(updatedItems);
+      // Success definition might be needed if we want to update with server response
+      // But for now we assume success
     } catch (error) {
       console.error("Failed to save itinerary:", error);
       alert(
@@ -426,10 +447,11 @@ export default function ItineraryEditor({
           ? `Failed to save itinerary: ${error.message}`
           : "Failed to save itinerary. Please try again."
       );
+      // Revert on error
+      setItems(previousItems);
     } finally {
       setIsSaving(false);
     }
-
   };
 
   const handleEditStart = (id: string, item: ItineraryItem) => {
@@ -439,6 +461,7 @@ export default function ItineraryEditor({
       startTime: item.fixedStartTime || item.startTime || "",
       durationMin: item.durationMin?.toString() || "",
       notes: item.notes || "",
+      placeName: item.place?.name || "",
     });
   };
 
@@ -459,13 +482,11 @@ export default function ItineraryEditor({
       ...originalItem,
       title: draft.title.trim(),
       fixedStartTime: startTimeValue || undefined,
-      durationMin: draft.durationMin.trim()
-        ? parseInt(draft.durationMin, 10)
-        : undefined,
+      durationMin: draft.durationMin.trim() ? parseInt(draft.durationMin, 10) : undefined,
       notes: draft.notes.trim() || undefined,
+      place: draft.placeName.trim() ? { name: draft.placeName.trim() } : undefined,
     };
 
-    // Clear startTime (legacy field) when we have fixedStartTime or when clearing
     if (updatedItem.fixedStartTime || !startTimeValue) {
       updatedItem.startTime = undefined;
     }
@@ -474,8 +495,6 @@ export default function ItineraryEditor({
     updatedItems[itemIndex] = updatedItem;
 
     await handleSave(updatedItems);
-
-    // Close editor after successful save
     setEditingId(null);
     setDraft(null);
   };
@@ -494,21 +513,20 @@ export default function ItineraryEditor({
       id: crypto.randomUUID(),
       title: newItem.title.trim(),
       fixedStartTime: newItem.fixedStartTime.trim() || undefined,
-      durationMin: newItem.durationMin
-        ? parseInt(newItem.durationMin, 10)
-        : undefined,
+      durationMin: newItem.durationMin ? parseInt(newItem.durationMin, 10) : undefined,
       notes: newItem.notes.trim() || undefined,
+      place: newItem.placeName.trim() ? { name: newItem.placeName.trim() } : undefined,
     };
 
     const updatedItems = [...items, item];
     await handleSave(updatedItems);
 
-    // Reset form
-    setNewItem({ title: "", fixedStartTime: "", durationMin: "", notes: "" });
+    setNewItem({ title: "", fixedStartTime: "", durationMin: "", notes: "", placeName: "" });
     setShowAddPanel(false);
   };
 
   const handleDeleteItem = async (itemId: string) => {
+    if (!window.confirm("Are you sure you want to delete this event?")) return;
     const updatedItems = items.filter((item) => item.id !== itemId);
     await handleSave(updatedItems);
   };
@@ -526,7 +544,6 @@ export default function ItineraryEditor({
   };
 
   const handleReorderStart = () => {
-    // Close any active editing
     setEditingId(null);
     setDraft(null);
     setReorderStartItems([...items]);
@@ -534,7 +551,6 @@ export default function ItineraryEditor({
   };
 
   const handleReorderDone = async () => {
-    // Check if order actually changed
     const orderChanged =
       items.length !== reorderStartItems.length ||
       items.some((item, index) => item.id !== reorderStartItems[index]?.id);
@@ -548,186 +564,146 @@ export default function ItineraryEditor({
   };
 
   const handleReorderCancel = () => {
-    // Restore original order
     setItems([...reorderStartItems]);
     setIsReorderMode(false);
     setReorderStartItems([]);
   };
 
-  // Get activity items for sortable context (exclude gaps)
   const activityItems = scheduledBlocks.filter(
     (block): block is Extract<ScheduledBlock, { type: "activity" }> =>
       block.type === "activity"
   );
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Itinerary</h2>
-        <div className="flex gap-2">
-          {!showAddPanel && !isReorderMode && !editingId && items.length > 0 && (
-            <button
-              onClick={handleReorderStart}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
-            >
-              Reorder
-            </button>
-          )}
-          {!showAddPanel && !isReorderMode && !editingId && (
-            <button
-              onClick={() => {
-                // Close any active editing
-                setEditingId(null);
-                setDraft(null);
-                setShowAddPanel(true);
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-            >
-              Add item
-            </button>
-          )}
-          {isReorderMode && (
-            <>
-              <button
-                onClick={handleReorderDone}
-                disabled={isSaving}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-              >
-                {isSaving ? "Saving..." : "Done"}
-              </button>
-              <button
-                onClick={handleReorderCancel}
-                disabled={isSaving}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-              >
-                Cancel
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {showAddPanel && (
-        <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
-          <form onSubmit={handleAddItem} className="space-y-3">
-            <div>
-              <label
-                htmlFor="title"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Title *
-              </label>
-              <input
-                type="text"
-                id="title"
-                required
-                value={newItem.title}
-                onChange={(e) =>
-                  setNewItem({ ...newItem, title: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter title"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="fixedStartTime"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Pinned start time (HH:MM)
-              </label>
-              <input
-                type="text"
-                id="fixedStartTime"
-                value={newItem.fixedStartTime}
-                onChange={(e) =>
-                  setNewItem({ ...newItem, fixedStartTime: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="09:00 (optional)"
-                pattern="^([0-1][0-9]|2[0-3]):[0-5][0-9]$"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Leave empty to auto-assign from plan start time
-              </p>
-            </div>
-
-            <div>
-              <label
-                htmlFor="durationMin"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Duration (minutes)
-              </label>
-              <input
-                type="number"
-                id="durationMin"
-                min="1"
-                value={newItem.durationMin}
-                onChange={(e) =>
-                  setNewItem({ ...newItem, durationMin: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="60"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Default: 60 minutes if empty
-              </p>
-            </div>
-
-            <div>
-              <label
-                htmlFor="notes"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Notes
-              </label>
-              <textarea
-                id="notes"
-                value={newItem.notes}
-                onChange={(e) =>
-                  setNewItem({ ...newItem, notes: e.target.value })
-                }
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                placeholder="Optional notes"
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={isSaving || !newItem.title.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-              >
-                {isSaving ? "Saving..." : "Save"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddPanel(false);
-                  setNewItem({
-                    title: "",
-                    fixedStartTime: "",
-                    durationMin: "",
-                    notes: "",
-                  });
-                }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+    <div className="w-full">
+      {/* Controls Bar - Only show if not readOnly */}
+      {!readOnly && (
+        <div className="flex justify-between items-center mb-6">
+          <div className="text-sm text-zinc-500 font-medium">
+            {items.length > 0 ? `${items.length} activities planned` : "Start adding activities"}
+          </div>
+          <div className="flex gap-2">
+            {!showAddPanel && !isReorderMode && !editingId && items.length > 0 && (
+              <Button variant="secondary" size="sm" onClick={handleReorderStart}>Edit</Button>
+            )}
+            {!showAddPanel && !isReorderMode && !editingId && (
+              <Button size="sm" onClick={() => setShowAddPanel(true)}>+ Add Activity</Button>
+            )}
+            {isReorderMode && (
+              <>
+                <Button variant="ghost" size="sm" onClick={handleReorderCancel} disabled={isSaving}>Cancel</Button>
+                <Button size="sm" onClick={handleReorderDone} disabled={isSaving}>Done Reordering</Button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
-      <div className="space-y-2">
-        {scheduledBlocks.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">
-            No items yet. Click "Add item" to get started.
-          </p>
+      {showAddPanel && (
+        <div className="mb-8 animate-in slide-in-from-top-4">
+          <Card className="border-blue-200 ring-4 ring-blue-50/50">
+            <CardBody className="bg-white">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold text-zinc-900">New Activity</h3>
+                <button onClick={() => setShowAddPanel(false)} className="text-zinc-400 hover:text-zinc-600">
+                  <span className="sr-only">Close</span>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              <form onSubmit={handleAddItem} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1">Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={newItem.title}
+                    onChange={(e) => setNewItem({ ...newItem, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                    placeholder="e.g. Breakfast at Café de Flore"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1">Location</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg className="h-4 w-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      value={newItem.placeName}
+                      onChange={(e) => setNewItem({ ...newItem, placeName: e.target.value })}
+                      className="w-full pl-9 pr-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                      placeholder="Add a location..."
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 mb-1">Duration (min)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={newItem.durationMin}
+                      onChange={(e) => setNewItem({ ...newItem, durationMin: e.target.value })}
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                      placeholder="60"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 mb-1">Fixed Start Time (Optional)</label>
+                    <input
+                      type="text"
+                      value={newItem.fixedStartTime}
+                      onChange={(e) => setNewItem({ ...newItem, fixedStartTime: e.target.value })}
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                      placeholder="HH:MM"
+                      pattern="^([0-1][0-9]|2[0-3]):[0-5][0-9]$"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1">Notes</label>
+                  <textarea
+                    value={newItem.notes}
+                    onChange={(e) => setNewItem({ ...newItem, notes: e.target.value })}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900 resize-none"
+                    placeholder="Add details, links, or reminders..."
+                  />
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2">
+                  <Button type="button" variant="ghost" onClick={() => setShowAddPanel(false)}>Cancel</Button>
+                  <Button type="submit" disabled={!newItem.title.trim() || isSaving}>
+                    {isSaving ? "Adding..." : "Add to Itinerary"}
+                  </Button>
+                </div>
+              </form>
+            </CardBody>
+          </Card>
+        </div>
+      )}
+
+      <div className="space-y-0 relative pl-4">
+        {scheduledBlocks.length === 0 && !showAddPanel ? (
+          <div className="text-center py-12 border-2 border-dashed border-zinc-200 rounded-2xl bg-zinc-50/50">
+            <button
+              onClick={() => setShowAddPanel(true)}
+              className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-zinc-100 text-zinc-300 hover:text-blue-600 hover:border-blue-200 hover:scale-105 transition-all cursor-pointer"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+            </button>
+            <p className="text-zinc-500 font-medium">Your itinerary is empty</p>
+            <p className="text-zinc-400 text-sm mt-1">Add your first activity to start planning</p>
+          </div>
         ) : (
           <DndContext
             sensors={sensors}
@@ -738,46 +714,45 @@ export default function ItineraryEditor({
               items={activityItems.map((block) => block.item.id)}
               strategy={verticalListSortingStrategy}
             >
-              {scheduledBlocks.map((block, index) => {
-                if (block.type === "gap") {
-                  return (
-                    <div
-                      key={`gap-${index}`}
-                      className="border border-gray-200 rounded-lg p-3 bg-gray-50 opacity-75"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-xs font-medium text-gray-500 uppercase">
-                            Gap
-                          </span>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {block.startTime} – {block.endTime} ({block.durationMin} min)
-                          </p>
+              <div className="space-y-0">
+                {scheduledBlocks.map((block, index) => {
+                  if (block.type === "gap") {
+                    return (
+                      <div key={`gap-${index}`} className="flex gap-4 group">
+                        <div className="w-12 text-xs text-zinc-300 text-right pt-2 font-mono">
+                          {/* Hidden time for gap start/end to keep alignment, or show small */}
+                        </div>
+                        <div className="relative flex-1 py-3 pl-8 border-l border-zinc-100 ml-6">
+                          <div className="absolute left-[-5px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-zinc-100 border-2 border-white ring-1 ring-zinc-50" />
+                          <div className="text-xs font-medium text-zinc-400 italic">
+                            {block.durationMin} min gap ({block.startTime} - {block.endTime})
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    );
+                  }
+                  return (
+                    <SortableItem
+                      key={block.item.id}
+                      block={block}
+                      isReorderMode={isReorderMode}
+                      onDelete={handleDeleteItem}
+                      isSaving={isSaving}
+                      editingId={editingId}
+                      draft={draft}
+                      onEdit={handleEditStart}
+                      onSave={handleEditSave}
+                      onCancel={handleEditCancel}
+                      onDraftChange={handleDraftChange}
+                      readOnly={readOnly}
+                    />
                   );
-                }
-                return (
-                  <SortableItem
-                    key={block.item.id}
-                    block={block}
-                    isReorderMode={isReorderMode}
-                    onDelete={handleDeleteItem}
-                    isSaving={isSaving}
-                    editingId={editingId}
-                    draft={draft}
-                    onEdit={handleEditStart}
-                    onSave={handleEditSave}
-                    onCancel={handleEditCancel}
-                    onDraftChange={handleDraftChange}
-                  />
-                );
-              })}
+                })}
+              </div>
             </SortableContext>
           </DndContext>
         )}
       </div>
-    </div>
+    </div >
   );
 }

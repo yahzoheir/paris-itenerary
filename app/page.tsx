@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
+import { Button } from "./ui/Button";
 
 export default function HomePage() {
   const [email, setEmail] = useState<string | null>(null);
@@ -20,89 +21,127 @@ export default function HomePage() {
     window.location.href = "/";
   }
 
+  const scrollToHowItWorks = () => {
+    document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" });
+  };
+
   return (
-    <main className="min-h-screen bg-zinc-50 px-5 py-10 text-zinc-900">
-      <div className="mx-auto w-full max-w-md">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Paris Itinerary Planner
-        </h1>
-        <p className="mt-2 text-sm text-zinc-600">
-          Plan a day in Paris with preferences, a timeline, and shareable plans.
-        </p>
-
-        <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4">
-          {loading ? (
-            <p className="text-sm text-zinc-600">Checking session...</p>
-          ) : email ? (
-            <div className="space-y-3">
-              <p className="text-sm text-zinc-700">
-                Logged in as <span className="font-medium">{email}</span>
-              </p>
-              <div className="flex gap-2">
-                <a
-                  href="/app"
-                  className="flex-1 rounded-xl bg-zinc-900 px-4 py-2 text-center text-sm font-medium text-white"
-                >
-                  Open Planner
-                </a>
-                <button
-                  onClick={logout}
-                  className="rounded-xl border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-900"
-                >
-                  Logout
-                </button>
-              </div>
-              <div className="flex gap-2">
-                <a
-                  href="/plans"
-                  className="flex-1 rounded-xl border border-zinc-200 px-4 py-2 text-center text-sm font-medium text-zinc-900"
-                >
-                  My Plans
-                </a>
-                <a
-                  href="/supabase-test"
-                  className="rounded-xl border border-zinc-200 px-4 py-2 text-center text-sm font-medium text-zinc-900"
-                >
-                  DB Test
+    <main className="min-h-screen bg-[#fafafa] text-zinc-900 overflow-x-hidden">
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-zinc-200/50">
+        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="font-semibold text-lg tracking-tight">AItinerary.</div>
+          <div className="flex gap-4 items-center">
+            {loading ? (
+              <span className="text-xs text-zinc-500">Loading...</span>
+            ) : email ? (
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-zinc-600 hidden sm:block">{email}</span>
+                <Button onClick={logout} variant="ghost" size="sm">Logout</Button>
+                <a href="/plans">
+                  <Button variant="primary" size="sm">My Plans</Button>
                 </a>
               </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-zinc-700">
-                You’re not logged in. Login to use the planner.
-              </p>
-              <div className="flex gap-2">
-                <a
-                  href="/login"
-                  className="flex-1 rounded-xl bg-zinc-900 px-4 py-2 text-center text-sm font-medium text-white"
-                >
-                  Login
-                </a>
-                <a
-                  href="/supabase-test"
-                  className="rounded-xl border border-zinc-200 px-4 py-2 text-center text-sm font-medium text-zinc-900"
-                >
-                  DB Test
-                </a>
-              </div>
-            </div>
-          )}
+            ) : (
+              <a href="/login">
+                <Button variant="primary" size="sm">Login</Button>
+              </a>
+            )}
+          </div>
         </div>
+      </nav>
 
-        <div className="mt-6 space-y-2 text-xs text-zinc-500">
-          <p>
-            Routes:{" "}
-            <span className="font-mono">
-              /app • /plans • /plan/[id] • /login
-            </span>
-          </p>
-          <p className="leading-relaxed">
-            Next steps: build “My Plans”, plan detail page, sharing, then chatbot +
-            Places.
-          </p>
+      {/* Hero Section */}
+      <section className="relative pt-32 pb-20 px-6 max-w-5xl mx-auto">
+        <div className="flex flex-col md:flex-row items-center gap-12">
+          <div className="flex-1 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-100/80 border border-zinc-200 text-xs font-medium text-zinc-600">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              The smart itinerary planner
+            </div>
+            <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-zinc-900 leading-[1.1]">
+              Craft your perfect <br /> Day in <span className="text-zinc-400">Paris.</span>
+            </h1>
+            <p className="text-lg text-zinc-600 leading-relaxed max-w-md">
+              Forget chaotic spreadsheets. Design elegant, time-perfected itineraries for the City of Light with effortless drag-and-drop.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <a href={email ? "/plans" : "/login"}>
+                <Button size="lg" className="rounded-full px-8">
+                  {email ? "Go to my plans" : "Start planning"}
+                </Button>
+              </a>
+              <Button variant="secondary" size="lg" className="rounded-full" onClick={scrollToHowItWorks}>
+                See how it works
+              </Button>
+            </div>
+
+            <div className="pt-4 flex gap-8 text-sm text-zinc-500 font-medium">
+              <span className="flex items-center gap-2">✓ Smart scheduling</span>
+              <span className="flex items-center gap-2">✓ Drag & drop</span>
+              <span className="flex items-center gap-2">✓ Shareable</span>
+            </div>
+          </div>
+
+          <div className="flex-1 relative w-full aspect-square max-w-md md:max-w-lg">
+            {/* Simple aesthetic placeholder using generated asset if available, or CSS shape */}
+            <div className="absolute inset-0 bg-zinc-100 rounded-[3rem] rotate-3 z-0 border border-zinc-200" />
+            <div className="absolute inset-0 bg-white rounded-[3rem] -rotate-2 z-10 shadow-2xl shadow-zinc-200/50 overflow-hidden border border-zinc-100">
+              <img
+                src="/paris_hero_minimalist_1769709515570.png"
+                alt="Paris Illustration"
+                className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-700"
+              />
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* How it works */}
+      <section id="how-it-works" className="py-24 bg-white border-t border-zinc-100">
+        <div className="max-w-5xl mx-auto px-6">
+          <h2 className="text-2xl font-semibold text-center mb-16">Effortless planning in 3 steps</h2>
+
+          <div className="grid md:grid-cols-3 gap-12">
+            {[
+              {
+                title: "Create a Plan",
+                desc: "Set your date and time window. We handle the constraints so you don't have to.",
+                icon: "1"
+              },
+              {
+                title: "Add Activities",
+                desc: "List the spots you want to visit. Drag and drop to reorder and see the schedule update instantly.",
+                icon: "2"
+              },
+              {
+                title: "Enjoy & Share",
+                desc: "Get a clear timeline for your day. Share with friends or keep it private.",
+                icon: "3"
+              }
+            ].map((step, i) => (
+              <div key={i} className="flex flex-col items-center text-center space-y-4 group">
+                <div className="w-12 h-12 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center justify-center text-lg font-bold text-zinc-900 group-hover:bg-zinc-900 group-hover:text-white transition-colors duration-300">
+                  {step.icon}
+                </div>
+                <h3 className="text-lg font-medium">{step.title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed max-w-xs">{step.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-12 border-t border-zinc-200 bg-zinc-50">
+        <div className="max-w-5xl mx-auto px-6 flex justify-between items-center text-sm text-zinc-500">
+          <div>© 2026 AItinerary.</div>
+          <div className="flex gap-4">
+            <a href="/login" className="hover:text-zinc-900">Login</a>
+            <a href="/plans" className="hover:text-zinc-900">My Plans</a>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
