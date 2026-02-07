@@ -107,8 +107,11 @@ async function fetchCandidates(
         try {
             const res = await fetch(url);
             const data = await res.json();
-            if (data.results) {
-                return data.results;
+            if (data.status === "OK" || data.status === "ZERO_RESULTS") {
+                return data.results || [];
+            } else {
+                console.error("Google Places API Error:", data.status, data.error_message);
+                throw new Error(`Google Places API Error: ${data.status}`);
             }
         } catch (e) {
             console.error("Google Places Error:", e);
@@ -328,5 +331,45 @@ export async function generateCompassItinerary(planId: string, input: GenerateIn
     } catch (e: any) {
         console.error("Compass Generation Error:", e);
         return { error: { type: "INTERNAL", message: "An unexpected error occurred." } };
+    }
+}
+
+// --- Chat Action ---
+
+export async function chatCompass(history: { role: string, text: string }[]) {
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
+
+    const systemPrompt = `You are Compass, an expert travel planner for Paris.
+    You are chatting with a user to help them plan a day in Paris.
+    Ask clarifying questions about their preferences (budget, interests, pace, food) if they haven't provided them.
+    Keep responses concise and helpful.
+    Refuse to discuss topics unrelated to travel in Paris.
+    `;
+
+    try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${OPENAI_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: "gpt-4o",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    ...history.map(h => ({ role: h.role, content: h.text }))
+                ],
+                temperature: 0.7,
+            })
+        });
+
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message);
+
+        return { text: data.choices[0].message.content };
+    } catch (error: any) {
+        console.error("Chat Error:", error);
+        return { error: "Failed to get response." };
     }
 }

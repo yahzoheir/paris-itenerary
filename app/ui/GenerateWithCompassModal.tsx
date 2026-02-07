@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/app/ui/Button";
 import { ItineraryItem, GenerateInput } from "@/types/itinerary";
-import { generateCompassItinerary } from "@/app/plan/[id]/compass/actions";
+import { generateCompassItinerary, chatCompass } from "@/app/plan/[id]/compass/actions";
 
 interface GenerateWithCompassModalProps {
     isOpen: boolean;
@@ -53,6 +53,8 @@ export default function GenerateWithCompassModal({
         { role: 'assistant', text: "Hi — tell me what kind of day you want in Paris and I'll draft an itinerary." }
     ]);
     const [chatInput, setChatInput] = useState("");
+    const [isChatLoading, setIsChatLoading] = useState(false);
+
 
     if (!isOpen) return null;
 
@@ -82,8 +84,8 @@ export default function GenerateWithCompassModal({
         }
     };
 
-    const handleSendMessage = () => {
-        if (!chatInput.trim()) return;
+    const handleSendMessage = async () => {
+        if (!chatInput.trim() || isChatLoading) return;
 
         const newMessages = [
             ...chatMessages,
@@ -91,7 +93,21 @@ export default function GenerateWithCompassModal({
         ];
         setChatMessages(newMessages);
         setChatInput("");
-        // Local state update only - server generation happens on 'Generate draft'
+        setIsChatLoading(true);
+
+        try {
+            const response = await chatCompass(newMessages);
+            if (response.text) {
+                setChatMessages(prev => [...prev, { role: 'assistant', text: response.text }]);
+            } else {
+                setChatMessages(prev => [...prev, { role: 'assistant', text: "Sorry, I'm having trouble connecting right now." }]);
+            }
+        } catch (e) {
+            console.error("Chat Error:", e);
+            setChatMessages(prev => [...prev, { role: 'assistant', text: "Sorry, something went wrong." }]);
+        } finally {
+            setIsChatLoading(false);
+        }
     };
 
     const handleGenerate = async () => {
@@ -266,6 +282,15 @@ export default function GenerateWithCompassModal({
                                         </div>
                                     </div>
                                 ))}
+                                {isChatLoading && (
+                                    <div className="flex justify-start">
+                                        <div className="bg-white border border-zinc-200 text-zinc-400 px-4 py-3 rounded-2xl rounded-tl-none text-sm shadow-sm flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                            <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                            <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce"></span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <div className="p-4 bg-white border-t border-zinc-200">
                                 <form
