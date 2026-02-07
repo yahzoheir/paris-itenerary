@@ -146,6 +146,10 @@ async function fetchCandidates(
     const results = await Promise.all(safeQueries.map(q => fetchForQuery(q)));
 
     console.log(`[Compass] Fetched ${results.length} query groups.`);
+    // TEMP DEBUG: Log first group raw
+    if (results.length > 0 && results[0].length > 0) {
+        console.log("[Compass] First raw place:", JSON.stringify(results[0][0], null, 2));
+    }
 
     for (const group of results) {
         for (const place of group) {
@@ -262,26 +266,37 @@ Rules:
             const candidate = candidates.find(c => c.place_id === item.placeId);
 
             if (!candidate) {
-                console.warn(`[Compass] Candidate not found for ID: ${item.placeId}. Fallback to name: ${item.placeName}`);
+                console.warn(`[Compass] Candidate not found for ID: ${item.placeId}. Fallback to name: ${item.placeName || item.title}`);
+                // TEMP DEBUG: Log all candidate IDs to see why we missed
+                // console.log("Available IDs:", candidates.map(c => c.place_id));
+            } else {
+                console.log(`[Compass] Matched ${item.title} to ${candidate.name} (${candidate.place_id})`);
             }
+
+            const title = candidate ? candidate.name : item.title || item.placeName || "New Activity";
+            // Ensure we don't have "Undefined" as a string
+            const safeTitle = title === "Undefined" ? "New Activity" : title;
 
             return {
                 id: crypto.randomUUID(),
-                title: candidate ? candidate.name : item.title || item.placeName, // Use candidate name if available
+                title: safeTitle, // Use candidate name if available
                 durationMin: item.durationMin,
                 notes: item.notes,
                 place: candidate ? {
                     placeId: candidate.place_id,
                     name: candidate.name,
                     address: candidate.formatted_address,
-                } : { name: item.placeName },
-                mapsUrl: candidate ? candidate.mapsUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.placeName || item.title)}`,
+                } : { name: safeTitle },
+                mapsUrl: candidate ? candidate.mapsUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(safeTitle + " Paris")}`,
                 rating: candidate?.rating,
                 ratingsTotal: candidate?.user_ratings_total
             };
         });
 
         console.log(`[Compass] Final items count: ${finalItems.length}`);
+        if (finalItems.length > 0) {
+            console.log("[Compass] Sample Final Item:", JSON.stringify(finalItems[0], null, 2));
+        }
         return { items: finalItems };
 
     } catch (error: any) {
