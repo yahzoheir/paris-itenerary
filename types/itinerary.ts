@@ -17,6 +17,21 @@ export type ItineraryItem = {
   notes?: string;
   place?: PlaceRef;
   mapsUrl?: string;
+  placeId?: string;
+  rating?: number;
+  ratingsTotal?: number;
+};
+
+export type GenerateInput = {
+  budget?: "€" | "€€" | "€€€";
+  activityTypes?: string[];
+  walkingTolerance?: "Low" | "Medium" | "High";
+  includeFood?: boolean;
+  cuisines?: string[];
+  mustInclude?: string;
+  avoid?: string;
+  chatPrompt?: string;
+  workAroundExisting?: boolean;
 };
 
 export type Itinerary = {
