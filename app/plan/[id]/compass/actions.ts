@@ -56,7 +56,7 @@ async function incrementUsage(supabase: any, userId: string) {
     if (error) console.error("Rate limit increment failed:", error);
 }
 
-// Helper: Fetch Google Places Candidates
+// Helper: Fetch Google Places Candidates (New API v1)
 async function fetchCandidates(
     city: string,
     input: GenerateInput
@@ -68,10 +68,6 @@ async function fetchCandidates(
     const queries: string[] = [];
 
     // 1. Build queries based on input
-    // Base location: Paris center (bias)
-    const bias = "point:48.8566,2.3522"; // Not directly used in text search query param, but useful concept.
-    // Text Search API doesn't use 'point' param traditionally in the query string unless using 'location' & 'radius'.
-
     // Basic Interest Queries
     if (input.activityTypes && input.activityTypes.length > 0) {
         input.activityTypes.forEach(t => queries.push(`${t} in ${city}`));
@@ -100,47 +96,85 @@ async function fetchCandidates(
     const safeQueries = queries.slice(0, 5);
 
     const fetchForQuery = async (query: string) => {
-        // Determine type bias if possible, but textsearch is generic.
-        // We want rating, user_ratings_total, geometry, name, place_id, formatted_address
-        const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GOOGLE_API_KEY}`;
+        const url = `https://places.googleapis.com/v1/places:searchText`;
+
+        // Circular bias for Paris (approximate)
+        // Center: 48.8566, 2.3522. Radius: 5000m (5km) to capture strict city center or 10km.
+        // Let's use 10km radius.
+        const requestBody = {
+            textQuery: query,
+            locationBias: {
+                circle: {
+                    center: {
+                        latitude: 48.8566,
+                        longitude: 2.3522
+                    },
+                    radius: 10000.0 // meters
+                }
+            },
+            maxResultCount: 10
+        };
 
         try {
-            const res = await fetch(url);
+            const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Goog-Api-Key": GOOGLE_API_KEY,
+                    // Request specific fields to avoid over-fetching and ensure we get what we need
+                    // FieldMask: places.displayName, places.id, places.formattedAddress, places.rating, places.userRatingCount, places.googleMapsUri, places.types
+                    "X-Goog-FieldMask": "places.displayName,places.id,places.formattedAddress,places.rating,places.userRatingCount,places.googleMapsUri,places.types,places.editorialSummary"
+                },
+                body: JSON.stringify(requestBody)
+            });
+
             const data = await res.json();
-            if (data.status === "OK" || data.status === "ZERO_RESULTS") {
-                return data.results || [];
+
+            if (data.places) {
+                return data.places;
             } else {
-                console.error("Google Places API Error:", data.status, data.error_message);
-                throw new Error(`Google Places API Error: ${data.status}`);
+                if (data.error) {
+                    console.error("Google Places API v1 Error:", data.error);
+                }
             }
         } catch (e) {
-            console.error("Google Places Error:", e);
+            console.error("Google Places v1 Network Error:", e);
         }
         return [];
     };
 
     const results = await Promise.all(safeQueries.map(q => fetchForQuery(q)));
 
+    console.log(`[Compass] Fetched ${results.length} query groups.`);
+
     for (const group of results) {
         for (const place of group) {
-            if (!place.place_id || seenPlaceIds.has(place.place_id)) continue;
+            if (!place.id || seenPlaceIds.has(place.id)) continue;
+
+            const name = place.displayName?.text || "Unknown Place";
 
             // Filter by 'avoid'
-            if (input.avoid && place.name.toLowerCase().includes(input.avoid.toLowerCase())) {
+            if (input.avoid && name.toLowerCase().includes(input.avoid.toLowerCase())) {
                 continue;
             }
 
-            seenPlaceIds.add(place.place_id);
+            seenPlaceIds.add(place.id);
             candidates.push({
-                name: place.name,
-                place_id: place.place_id,
+                name: name,
+                place_id: place.id,
                 rating: place.rating,
-                user_ratings_total: place.user_ratings_total,
-                formatted_address: place.formatted_address,
+                user_ratings_total: place.userRatingCount,
+                formatted_address: place.formattedAddress,
                 types: place.types,
-                mapsUrl: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`
+                mapsUrl: place.googleMapsUri, // Direct from API
+                summary: place.editorialSummary?.text
             });
         }
+    }
+
+    console.log(`[Compass] Total unique candidates: ${candidates.length}`);
+    if (candidates.length > 0) {
+        console.log("[Compass] Sample candidate:", JSON.stringify(candidates[0], null, 2));
     }
 
     // Limit candidates to 60 to keep context size manageable
@@ -222,14 +256,18 @@ Rules:
         }
 
         // Hydrate items with candidate data
+        console.log(`[Compass] Hydrating ${result.items?.length} items from AI result.`);
         const finalItems: ItineraryItem[] = (result.items || []).map((item: any) => {
             // Find candidate
             const candidate = candidates.find(c => c.place_id === item.placeId);
-            // Fallback or use AI provided info if candidate missing (shouldn't happen per rules)
+
+            if (!candidate) {
+                console.warn(`[Compass] Candidate not found for ID: ${item.placeId}. Fallback to name: ${item.placeName}`);
+            }
 
             return {
                 id: crypto.randomUUID(),
-                title: item.title,
+                title: candidate ? candidate.name : item.title || item.placeName, // Use candidate name if available
                 durationMin: item.durationMin,
                 notes: item.notes,
                 place: candidate ? {
@@ -237,12 +275,13 @@ Rules:
                     name: candidate.name,
                     address: candidate.formatted_address,
                 } : { name: item.placeName },
-                mapsUrl: candidate ? candidate.mapsUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.placeName)}`,
+                mapsUrl: candidate ? candidate.mapsUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.placeName || item.title)}`,
                 rating: candidate?.rating,
                 ratingsTotal: candidate?.user_ratings_total
             };
         });
 
+        console.log(`[Compass] Final items count: ${finalItems.length}`);
         return { items: finalItems };
 
     } catch (error: any) {
