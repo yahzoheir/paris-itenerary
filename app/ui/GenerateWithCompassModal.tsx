@@ -100,7 +100,7 @@ export default function GenerateWithCompassModal({
             if (response.text) {
                 setChatMessages(prev => [...prev, { role: 'assistant', text: response.text }]);
             } else {
-                setChatMessages(prev => [...prev, { role: 'assistant', text: "Sorry, I'm having trouble connecting right now." }]);
+                setChatMessages(prev => [...prev, { role: 'assistant', text: `Error: ${response.error || "Unknown error"}` }]);
             }
         } catch (e) {
             console.error("Chat Error:", e);

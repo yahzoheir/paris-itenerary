@@ -370,6 +370,6 @@ export async function chatCompass(history: { role: string, text: string }[]) {
         return { text: data.choices[0].message.content };
     } catch (error: any) {
         console.error("Chat Error:", error);
-        return { error: "Failed to get response." };
+        return { error: error.message || String(error) };
     }
 }
