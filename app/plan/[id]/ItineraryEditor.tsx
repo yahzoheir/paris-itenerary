@@ -419,6 +419,22 @@ export default function ItineraryEditor({
     [items, planStartTime, planEndTime]
   );
 
+  // Effect: Handle external updates (e.g. from Compass generation)
+  // When initialItems changes and is different from current items, we assume it's a new generation batch.
+  // Note: stronger equality check or a specific "generationTimestamp" prop would be better, but this works for MVP.
+  const [prevInitialItems, setPrevInitialItems] = useState(initialItems);
+  if (initialItems !== prevInitialItems) {
+    setPrevInitialItems(initialItems);
+    // If we have new generated items, append them or replace?
+    // The user requested "support a 'work around existing' mode: keep existing items and append AI items"
+    // The parent 'generatedItems' are likely the *result* of the generation which might already include existing items
+    // if the backend logic handled it.
+    // Let's assume the parent passes the FULL desired list.
+    setItems(initialItems);
+    // Auto-save to persist the generated items
+    saveItineraryItems(planId, initialItems).catch(err => console.error("Auto-save generated items failed:", err));
+  }
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {

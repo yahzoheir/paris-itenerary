@@ -168,9 +168,10 @@ Rules:
 1. You can ONLY choose places from the CANDIDATE POOL. Do not hallucinate places.
 2. The itinerary must fit within the Time Window (${planContext.startTime} - ${planContext.endTime}).
 3. Total duration of items + travel time (estimate) must not exceed the window.
-4. If it fits, return valid JSON: { "items": [ ... ] }
-5. If it does NOT fit, return JSON: { "error": { "type": "OVERFLOW", "overflowMinutes": 30, "suggestions": ["Remove X", "Shorten Y"] } }
-6. Do not include markdown formatting, just raw JSON.
+4. If "workAroundExisting" is true, you MUST include the existing items in your final output, preserving their times if they are fixed, and scheduling new items around them.
+5. If it fits, return valid JSON: { "items": [ ... ] }
+6. If it does NOT fit, return JSON: { "error": { "type": "OVERFLOW", "overflowMinutes": 30, "suggestions": ["Remove X", "Shorten Y"] } }
+7. Do not include markdown formatting, just raw JSON.
   `;
 
     const userPrompt = JSON.stringify({
@@ -345,6 +346,7 @@ export async function chatCompass(history: { role: string, text: string }[]) {
     Ask clarifying questions about their preferences (budget, interests, pace, food) if they haven't provided them.
     Keep responses concise and helpful.
     Refuse to discuss topics unrelated to travel in Paris.
+    IMPORTANT: If the user asks you to "generate" or "create" an itinerary, DO NOT output a full itinerary here. Instead, ask them to click the "Generate draft from chat" button below so you can build it in their plan.
     `;
 
     try {
