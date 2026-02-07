@@ -471,11 +471,11 @@ export default function PlanPage() {
         isOpen={isCompassOpen}
         onClose={() => setIsCompassOpen(false)}
         onGenerate={handleCompassGenerate}
-        planId={plan.id}
+        planId={plan?.id || planId}
         planContext={{
-          startTime: plan.start_time,
-          endTime: plan.end_time,
-          peopleCount: plan.people_count,
+          startTime: plan?.start_time || null,
+          endTime: plan?.end_time || null,
+          peopleCount: plan?.people_count || null,
         }}
       />
     </main>
