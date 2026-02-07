@@ -250,6 +250,9 @@ Rules:
 // --- Main Action ---
 
 export async function generateCompassItinerary(planId: string, input: GenerateInput) {
+    console.log("--> generateCompassItinerary called for plan:", planId);
+    console.log("    Env check - OPENAI:", !!process.env.OPENAI_API_KEY, "GOOGLE:", !!process.env.GOOGLE_MAPS_API_KEY);
+
     const supabase = await createClient();
 
     // 1. Auth check

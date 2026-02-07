@@ -83,72 +83,48 @@ export default function GenerateWithCompassModal({
         setChatMessages(newMessages);
         setChatInput("");
 
-        // Mock AI response
-        setTimeout(() => {
-            setChatMessages(prev => [
-                ...prev,
-                { role: 'assistant', text: "Got it. I'll draft an itinerary focusing on that for you." }
-            ]);
-        }, 600);
+        // Local state update only - server generation happens on 'Generate draft'
     };
 
-    const handleGenerate = () => {
+    const handleGenerate = async () => {
         setStep("generating");
+        setError(null);
 
-        // Simulate delay
-        setTimeout(() => {
-            // Mock Data Generation
-            const mockItems: ItineraryItem[] = [
-                {
-                    id: crypto.randomUUID(),
-                    title: "Louvre Museum",
-                    durationMin: 120,
-                    notes: "Focus on highlights like the Mona Lisa and Venus de Milo.",
-                    place: { name: "Louvre Museum" },
-                    mapsUrl: "https://www.google.com/maps/search/?api=1&query=Louvre+Museum+Paris",
-                },
-                {
-                    id: crypto.randomUUID(),
-                    title: "Lunch at Le Nemours",
-                    durationMin: 90,
-                    notes: "Classic french café near the Louvre.",
-                    place: { name: "Le Nemours" },
-                    mapsUrl: "https://www.google.com/maps/search/?api=1&query=Le+Nemours+Paris",
-                },
-                {
-                    id: crypto.randomUUID(),
-                    title: "Tuileries Garden",
-                    durationMin: 60,
-                    notes: "Relaxing walk towards Place de la Concorde.",
-                    place: { name: "Jardin des Tuileries" },
-                    mapsUrl: "https://www.google.com/maps/search/?api=1&query=Jardin+des+Tuileries+Paris",
-                },
-                {
-                    id: crypto.randomUUID(),
-                    title: "Musée d'Orsay",
-                    durationMin: 120,
-                    notes: "Impressionist masterpieces.",
-                    place: { name: "Musée d'Orsay" },
-                    mapsUrl: "https://www.google.com/maps/search/?api=1&query=Musée+d'Orsay+Paris",
-                },
-                {
-                    id: crypto.randomUUID(),
-                    title: "Seine River Cruise",
-                    durationMin: 60,
-                    notes: "Sunset views of the city.",
-                    place: { name: "Bateaux Mouches" },
-                    mapsUrl: "https://www.google.com/maps/search/?api=1&query=Bateaux+Mouches+Paris",
-                },
-            ];
+        // Include chat history if we are in chat mode or have messages
+        const chatHistory = chatMessages
+            .filter(m => m.role === 'user')
+            .map(m => m.text)
+            .join("\n");
 
-            onGenerate(mockItems);
-            onClose();
-            // Reset state slightly after close to avoid flickering
-            setTimeout(() => {
-                setStep("form");
-                setChatMessages([{ role: 'assistant', text: "Hi — tell me what kind of day you want in Paris and I'll draft an itinerary." }]);
-            }, 300);
-        }, 1500);
+        const input: GenerateInput = {
+            budget: budget || undefined,
+            walkingTolerance: walkingTolerance || undefined,
+            includeFood,
+            activityTypes: interests.length > 0 ? interests : undefined,
+            cuisines: includeFood && cuisines.length > 0 ? cuisines : undefined,
+            mustInclude: mustInclude || undefined,
+            avoid: avoid || undefined,
+            workAroundExisting,
+            chatPrompt: chatHistory || undefined
+        };
+
+        try {
+            const result = await generateCompassItinerary(planId, input);
+
+            if (result.error) {
+                setError(result.error);
+                setUsage(result.usage || null);
+                setStep("error");
+            } else if (result.items) {
+                setDraftItems(result.items);
+                setUsage(result.usage || null);
+                setStep("preview");
+            }
+        } catch (e) {
+            console.error("Client Compass Error:", e);
+            setError({ type: "UNKNOWN", message: "An unexpected error occurred." });
+            setStep("error");
+        }
     };
 
     const formatTime = (time: string | null) => (time ? time.substring(0, 5) : "—");
@@ -196,8 +172,8 @@ export default function GenerateWithCompassModal({
                                 {chatMessages.map((msg, idx) => (
                                     <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                         <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm ${msg.role === 'user'
-                                                ? 'bg-blue-600 text-white rounded-tr-none'
-                                                : 'bg-white border border-zinc-200 text-zinc-700 rounded-tl-none shadow-sm'
+                                            ? 'bg-blue-600 text-white rounded-tr-none'
+                                            : 'bg-white border border-zinc-200 text-zinc-700 rounded-tl-none shadow-sm'
                                             }`}>
                                             {msg.text}
                                         </div>
