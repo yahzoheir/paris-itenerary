@@ -149,9 +149,10 @@ async function extractPreferencesFromChat(chatLog: string): Promise<Partial<Gene
                         }
                         
                         Rules:
-                        - If the user says "I want to go to Cédric Grolet", add "Cédric Grolet" to mustInclude.
-                        - Ignore polite chatter.
-                        - If no specific constraints, return empty arrays.`
+                        1. If the user says "I want to go to Cédric Grolet", add "Cédric Grolet" to mustInclude.
+                        2. **CRITICAL**: If the Assistant suggests a specific place (e.g. "How about Candelaria?") and the user replies positively (e.g. "Sounds great", "Love it", "Also add...") or implicitely accepts it by continuing to plan around it, ADD that place to "mustInclude".
+                        3. Ignore polite chatter.
+                        4. If no specific constraints, return empty arrays.`
                     },
                     { role: "user", content: chatLog }
                 ],
@@ -328,9 +329,10 @@ async function callOpenAI(
     RULES:
     1. You MUST ONLY select items from the "CANDIDATES" list.
     2. You MUST reference selected items by their exact "id".
-    3. You MUST include any candidate marked as "REQUIRED" (isPinned) in your selection.
+    3. You MUST include candidates marked as "REQUIRED" (isPinned) in your selection. 
+       **EXCEPTION**: If multiple REQUIRED input items are different locations of the EXACT SAME BRAND (e.g. "Cedric Grolet Opera" vs "Cedric Grolet Meurice"), select ONLY ONE (the best fit) to avoid duplicates.
     4. Start Time: ${planContext.startTime}. End Time: ${planContext.endTime}.
-    5. Accommodate "Existing Items" if present.
+    5. Accommodate "Existing Items" (fix them in place) if present.
     
     OUTPUT FORMAT (Strict JSON):
     {
