@@ -14,6 +14,7 @@ type PlanRow = {
   start_time: string | null;
   end_time: string | null;
   people_count: number | null;
+  preferences: { title?: string } | null;
 };
 
 const CARD_IMAGES = [
@@ -52,7 +53,7 @@ export default function PlansPage() {
 
     const { data, error } = await supabase
       .from("plans")
-      .select("id, city, date, created_at, is_public, start_time, end_time, people_count")
+      .select("id, city, date, created_at, is_public, start_time, end_time, people_count, preferences")
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -252,10 +253,10 @@ export default function PlansPage() {
 
                     <div className="absolute bottom-0 left-0 p-6 w-full">
                       <h3 className="text-3xl font-bold text-white leading-none tracking-tighter mb-1 drop-shadow-sm truncate">
-                        {(p as any).preferences?.title || p.city}
+                        {p.preferences?.title || p.city}
                       </h3>
                       <p className="text-white/90 font-medium text-sm flex items-center gap-2 drop-shadow-sm">
-                        {(p as any).preferences?.title && <span className="opacity-80">{p.city} • </span>}
+                        {p.preferences?.title && <span className="opacity-80">{p.city} • </span>}
                         {new Date(p.date).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
                       </p>
                     </div>
