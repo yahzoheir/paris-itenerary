@@ -20,6 +20,10 @@ export type ItineraryItem = {
   placeId?: string;
   rating?: number;
   ratingsTotal?: number;
+  metadata?: {
+    source?: "chat_locked" | "ai_suggested" | "fallback";
+    requested_name?: string;
+  };
 };
 
 export type GenerateInput = {

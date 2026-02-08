@@ -131,11 +131,14 @@ async function extractPlacesFromChat(chatLog: string): Promise<string[]> {
     
     TASK:
     Identify specific physical venues, landmarks, restaurants, or hotels mentioned in the conversation history as "requested" or "suggested".
-    Ignore general categories like "museums" or "parks".
+    
+    CRITICAL:
+    - If the ASSISTANT suggested a place (e.g., "I recommend Anahuacalli"), treat it as a "LOCKED PICK".
+    - If the USER requested a place (e.g., "I want to go to Cedric Grolet"), treat it as a "LOCKED PICK".
     
     OUTPUT:
     A JSON object with a single key "places" containing an array of strings.
-    Example: { "places": ["Cedric Grolet", "Louvre Museum"] }
+    Example: { "places": ["Anahuacalli", "Cedric Grolet Opéra"] }
     `;
 
     try {
@@ -255,7 +258,7 @@ async function fetchCandidates(
             if (data.places) {
                 // Tag explicit results
                 if (isExplicit) {
-                    return data.places.map((p: any) => ({ ...p, chat_explicit: true }));
+                    return data.places.map((p: any) => ({ ...p, is_locked_pick: true }));
                 }
                 return data.places;
             }
@@ -321,7 +324,7 @@ async function callOpenAI(
         name: c.displayName.text,
         rating: c.rating,
         tags: c.types ? c.types.slice(0, 3).join(", ") : "",
-        chat_explicit: c.chat_explicit // Pass the tag to LLM context
+        is_locked_pick: c.is_locked_pick // Pass the tag to LLM context
     }));
 
     const systemPrompt = `You are a strict Selection Engine for a Paris itinerary builder.
@@ -335,12 +338,14 @@ async function callOpenAI(
     3. DO NOT invent, hallucinate, or modify Place IDs or Names.
     4. Start Time: ${planContext.startTime}. End Time: ${planContext.endTime}.
     5. Accommodate "Existing Items" (fix them in place) if present.
-    6. PRIORITIZE items with "chat_explicit": true. These were specifically requested by the user.
+    6. MANDATORY: You MUST include items marked "is_locked_pick": true. 
+       - If a locked item exists for a category (e.g. Dinner), you MUST use it.
+       - These are venues specifically agreed upon in the chat.
 
     OUTPUT FORMAT (Strict JSON):
     {
        "items": [
-          { "placeId": "EXACT_ID_FROM_CANDIDATES", "durationMin": 90, "notes": "Brief reason for selection" }
+          { "placeId": "EXACT_ID_FROM_CANDIDATES", "durationMin": 90, "notes": "Brief reason for selection", "source": "chat_locked" | "ai_suggested" }
        ]
     }
     `;
@@ -413,6 +418,11 @@ async function callOpenAI(
                     placeId: candidate.id,
                     rating: candidate.rating,
                     ratingsTotal: candidate.userRatingCount,
+                    // Metadata for debugging
+                    metadata: {
+                        source: item.source || (candidate.is_locked_pick ? "chat_locked" : "ai_suggested"),
+                        requested_name: candidate.displayName.text
+                    }
                 });
             }
         }

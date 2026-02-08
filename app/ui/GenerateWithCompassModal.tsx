@@ -116,9 +116,8 @@ export default function GenerateWithCompassModal({
 
         // Include chat history if we are in chat mode or have messages
         const chatHistory = chatMessages
-            .filter(m => m.role === 'user')
-            .map(m => m.text)
-            .join("\n");
+            .map(m => `${m.role.toUpperCase()}: ${m.text}`)
+            .join("\n\n");
 
         const input: GenerateInput = {
             budget: budget || undefined,
