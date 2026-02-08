@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 
 import { supabase } from "../../lib/supabaseClient";
 import ItineraryEditor from "./ItineraryEditor";
+import { saveItineraryItems } from "./actions"; // Import the server action
 import type { ItineraryItem } from "@/types/itinerary";
 import GenerateWithCompassModal from "@/app/ui/GenerateWithCompassModal";
 import { Button } from "@/app/ui/Button";
@@ -78,9 +79,23 @@ export default function PlanPage() {
   const [generatedItems, setGeneratedItems] = useState<ItineraryItem[] | null>(null);
   const [editorKey, setEditorKey] = useState(0);
 
-  const handleCompassGenerate = (items: ItineraryItem[]) => {
+  const handleCompassGenerate = async (items: ItineraryItem[]) => {
+    // 1. Optimistic Update
     setGeneratedItems(items);
     setEditorKey((prev) => prev + 1);
+
+    // 2. Persist to DB
+    if (!planId) return;
+    setStatus("Saving itinerary...");
+    try {
+      await saveItineraryItems(planId, items);
+      setStatus("Itinerary saved ✅");
+      // 3. Reload to ensure consistency
+      await load();
+    } catch (err) {
+      console.error("Failed to save generated itinerary:", err);
+      setStatus("Error saving itinerary");
+    }
   };
 
   async function load() {
