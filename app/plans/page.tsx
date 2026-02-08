@@ -37,6 +37,11 @@ export default function PlansPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  const [renameTargetId, setRenameTargetId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+
   async function load() {
     setLoading(true);
     setStatus("");
@@ -155,6 +160,54 @@ export default function PlansPage() {
     setIsDeleting(false);
   }
 
+  function handleRenameClick(e: React.MouseEvent, plan: PlanRow) {
+    e.preventDefault();
+    e.stopPropagation();
+    setRenameTargetId(plan.id);
+    setRenameValue(plan.preferences?.title || plan.city);
+    setRenameError(null);
+  }
+
+  function handleRenameCancel() {
+    setRenameTargetId(null);
+    setRenameValue("");
+    setRenameError(null);
+  }
+
+  async function handleRenameConfirm() {
+    if (!renameTargetId) return;
+    setIsRenaming(true);
+    setRenameError(null);
+
+    // Find the plan to preserve other preferences if they existed (though here we only have title in types usually)
+    const plan = plans.find(p => p.id === renameTargetId);
+    const updatedPreferences = {
+      ...(plan?.preferences || {}),
+      title: renameValue.trim() || undefined
+    };
+
+    const { error } = await supabase
+      .from("plans")
+      .update({ preferences: updatedPreferences })
+      .eq("id", renameTargetId);
+
+    if (error) {
+      setRenameError(error.message);
+      setIsRenaming(false);
+      return;
+    }
+
+    // Update UI
+    setPlans(prev => prev.map(p =>
+      p.id === renameTargetId
+        ? { ...p, preferences: updatedPreferences }
+        : p
+    ));
+
+    setIsRenaming(false);
+    setRenameTargetId(null);
+  }
+
   // Handle Esc key to close modal
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
@@ -230,8 +283,15 @@ export default function PlansPage() {
               <a key={p.id} href={`/plan/${p.id}`} className="group block focus:outline-none h-full">
                 <Card className="h-full flex flex-col hover:shadow-xl hover:shadow-zinc-200/50 hover:border-zinc-300 transition-all duration-300 group-hover:-translate-y-1 active:scale-[0.99] relative group-focus:ring-2 group-focus:ring-zinc-900 group-focus:ring-offset-2 overflow-hidden bg-white">
 
-                  {/* Delete Button (Visible on Hover) */}
-                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                  {/* Actions (Visible on Hover) */}
+                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-20 flex gap-2">
+                    <button
+                      onClick={(e) => handleRenameClick(e, p)}
+                      className="p-2 bg-white/90 backdrop-blur rounded-full text-zinc-400 hover:text-blue-600 hover:bg-blue-50 border border-zinc-200/50 shadow-sm transition-colors"
+                      title="Rename plan"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    </button>
                     <button
                       onClick={(e) => handleDeleteClick(e, p)}
                       className="p-2 bg-white/90 backdrop-blur rounded-full text-zinc-400 hover:text-red-600 hover:bg-red-50 border border-zinc-200/50 shadow-sm transition-colors"
@@ -325,6 +385,50 @@ export default function PlansPage() {
               </Button>
               <Button variant="danger" onClick={handleDeleteConfirm} isLoading={isDeleting}>
                 Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Modal */}
+      {renameTargetId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={handleRenameCancel}
+        >
+          <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm animate-in fade-in duration-200" />
+
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-semibold text-zinc-900 mb-4">Rename Plan</h2>
+
+            <div className="mb-6">
+              <input
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                className="w-full px-4 py-3 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+                placeholder="Plan Name"
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && handleRenameConfirm()}
+              />
+            </div>
+
+            {renameError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
+                {renameError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="secondary" onClick={handleRenameCancel} disabled={isRenaming}>
+                Cancel
+              </Button>
+              <Button onClick={handleRenameConfirm} isLoading={isRenaming}>
+                Save
               </Button>
             </div>
           </div>

@@ -69,6 +69,8 @@ export default function PlanPage() {
   const [user, setUser] = useState<any>(null);
   const [isEditingTimeWindow, setIsEditingTimeWindow] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
   const [timeWindowForm, setTimeWindowForm] = useState({
     start_time: "",
     end_time: "",
@@ -249,6 +251,37 @@ export default function PlanPage() {
     await load();
   }
 
+  async function handleSaveTitle() {
+    if (!plan) return;
+    setStatus("Updating title...");
+
+    const updatedPreferences = {
+      ...(plan.preferences as any),
+      title: newTitle.trim() || undefined
+    };
+
+    const { error } = await supabase
+      .from("plans")
+      .update({ preferences: updatedPreferences })
+      .eq("id", plan.id);
+
+    if (error) {
+      setStatus(`Update error: ${error.message}`);
+      return;
+    }
+
+    setPlan({ ...plan, preferences: updatedPreferences });
+    setIsEditingTitle(false);
+    setStatus("Title updated ✅");
+  }
+
+  // Pre-fill title when entering edit mode
+  useEffect(() => {
+    if (isEditingTitle && plan) {
+      setNewTitle((plan.preferences as any)?.title || plan.city);
+    }
+  }, [isEditingTitle, plan]);
+
   const initialItems: ItineraryItem[] = generatedItems || (Array.isArray(plan?.itinerary?.items)
     ? plan.itinerary.items
     : []);
@@ -325,8 +358,42 @@ export default function PlanPage() {
                 <div className="absolute bottom-0 left-0 p-8 w-full">
                   <div className="flex items-end justify-between">
                     <div>
-                      <h1 className="text-4xl font-bold text-white mb-2">
-                        {(plan.preferences as any)?.title || plan.city}
+                      <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
+                        {isEditingTitle ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={newTitle}
+                              onChange={(e) => setNewTitle(e.target.value)}
+                              className="bg-white/10 text-white px-3 py-1 rounded-lg border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/50 text-3xl font-bold w-full min-w-[300px]"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveTitle();
+                                if (e.key === 'Escape') setIsEditingTitle(false);
+                              }}
+                            />
+                            <Button size="sm" onClick={handleSaveTitle} className="bg-white text-zinc-900 hover:bg-zinc-100">Save</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setIsEditingTitle(false)} className="text-white hover:bg-white/10">Cancel</Button>
+                          </div>
+                        ) : (
+                          <>
+                            <span
+                              className={isOwner ? "cursor-pointer hover:underline decoration-white/30 decoration-2 underline-offset-4" : ""}
+                              onClick={() => isOwner && setIsEditingTitle(true)}
+                              title={isOwner ? "Click to rename" : ""}
+                            >
+                              {(plan.preferences as any)?.title || plan.city}
+                            </span>
+                            {isOwner && (
+                              <button
+                                onClick={() => setIsEditingTitle(true)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-white/20 rounded-full text-white/70 hover:text-white"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                              </button>
+                            )}
+                          </>
+                        )}
                       </h1>
                       <div className="flex items-center gap-3 text-white/90">
                         <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-sm font-medium border border-white/10">
