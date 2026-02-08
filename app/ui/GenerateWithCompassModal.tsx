@@ -114,12 +114,11 @@ export default function GenerateWithCompassModal({
         setStep("generating");
         setError(null);
 
-        // Include full chat history for better context extraction
+        // Include chat history if we are in chat mode or have messages
         const chatHistory = chatMessages
-            .map(m => `${m.role.toUpperCase()}: ${m.text}`)
+            .filter(m => m.role === 'user')
+            .map(m => m.text)
             .join("\n");
-
-        console.log("[Compass Client] Generating with chat prompt length:", chatHistory.length);
 
         const input: GenerateInput = {
             budget: budget || undefined,

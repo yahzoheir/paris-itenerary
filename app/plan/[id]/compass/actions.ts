@@ -116,69 +116,6 @@ async function incrementUsage(supabase: any, userId: string) {
     if (error) console.error("Rate limit increment failed:", error);
 }
 
-// Helper: Extract detailed preferences from chat history
-async function extractPreferencesFromChat(chatLog: string): Promise<Partial<GenerateInput>> {
-    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    if (!OPENAI_API_KEY) return {};
-
-    console.log("[Compass] Extracting preferences from chat log...");
-
-    try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENAI_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: "gpt-4o",
-                messages: [
-                    {
-                        role: "system",
-                        content: `You are a Preference Extractor.
-                        Analyze the chat history between a user and Compass (travel assistant).
-                        Extract explicit constraints and preferences.
-                        
-                        OUTPUT JSON ONLY:
-                        {
-                            "mustInclude": ["specific place names"],
-                            "activityTypes": ["museums", "shopping", etc],
-                            "avoid": ["crowds", etc],
-                            "budget": "€" | "€€" | "€€€" | null,
-                            "includeFood": boolean
-                        }
-                        
-                        Rules:
-                        1. If the user says "I want to go to Cédric Grolet", add "Cédric Grolet" to mustInclude.
-                        2. **CRITICAL**: If the Assistant suggests a specific place (e.g. "How about Candelaria?") and the user replies positively (e.g. "Sounds great", "Love it", "Also add...") or implicitely accepts it by continuing to plan around it, ADD that place to "mustInclude".
-                        3. Ignore polite chatter.
-                        4. If no specific constraints, return empty arrays.`
-                    },
-                    { role: "user", content: chatLog }
-                ],
-                temperature: 0,
-                response_format: { type: "json_object" }
-            })
-        });
-
-        const data = await response.json();
-        const result = JSON.parse(data.choices[0].message.content);
-        console.log("[Compass] Extracted preferences:", JSON.stringify(result));
-
-        return {
-            mustInclude: result.mustInclude && result.mustInclude.length > 0 ? result.mustInclude.join(", ") : undefined,
-            activityTypes: result.activityTypes,
-            avoid: result.avoid && result.avoid.length > 0 ? result.avoid.join(", ") : undefined,
-            budget: result.budget,
-            includeFood: result.includeFood
-        };
-
-    } catch (e) {
-        console.error("Chat Extraction Error:", e);
-        return {};
-    }
-}
-
 // ------------------------------------------------------------------
 // 1. GOOGLE PLACES CANDIDATE FETCHING (Strict V1)
 // ------------------------------------------------------------------
@@ -191,26 +128,14 @@ async function fetchCandidates(
     if (!GOOGLE_API_KEY) throw new Error("Missing GOOGLE_MAPS_API_KEY");
 
     const queries: string[] = [];
-    const pinnedQueries: string[] = []; // Queries that MUST be found
 
     // Construct high-quality queries to get a diverse pool
     // Always append "Paris, France" to ensure bias
     const baseLocation = "Paris, France";
 
-    // 1. Handle Must Includes (Pinned)
-    if (input.mustInclude) {
-        // Split by comma if multiple are provided in string
-        const items = input.mustInclude.split(",").map(s => s.trim()).filter(s => s.length > 0);
-        items.forEach(item => {
-            pinnedQueries.push(`${item} in ${baseLocation}`);
-        });
-    }
-
-    // 2. Handle Activity Types
     if (input.activityTypes && input.activityTypes.length > 0) {
         input.activityTypes.forEach(t => queries.push(`best ${t} in ${baseLocation}`));
-    } else if (pinnedQueries.length === 0) {
-        // Only add defaults if we don't have specific pins, to avoid dilution
+    } else {
         queries.push(`must-see attractions in ${baseLocation}`);
         queries.push(`hidden gems in ${baseLocation}`);
     }
@@ -224,14 +149,22 @@ async function fetchCandidates(
         }
     }
 
+    if (input.mustInclude) {
+        queries.push(`${input.mustInclude} in ${baseLocation}`);
+    }
+
     // Deduplication Set
     const seenPlaceIds = new Set<string>();
     const candidates: any[] = [];
 
-    // Helper to fetch
-    const fetchForQuery = async (query: string, isPinned: boolean = false) => {
+    // Max 3 queries to keep it fast
+    const safeQueries = queries.slice(0, 3);
+    console.log(`[Compass] Fetching candidates for queries: ${JSON.stringify(safeQueries)}`);
+
+    const fetchForQuery = async (query: string) => {
         const url = `https://places.googleapis.com/v1/places:searchText`;
 
+        // Strict Paris Bias
         const requestBody = {
             textQuery: query,
             locationBias: {
@@ -240,7 +173,7 @@ async function fetchCandidates(
                     radius: 5000.0 // 5km strict center radius
                 }
             },
-            maxResultCount: isPinned ? 3 : 8
+            maxResultCount: 8 // Get decent chunk per query
         };
 
         try {
@@ -249,45 +182,34 @@ async function fetchCandidates(
                 headers: {
                     "Content-Type": "application/json",
                     "X-Goog-Api-Key": GOOGLE_API_KEY,
-                    "X-Goog-FieldMask": "places.displayName,places.id,places.formattedAddress,places.rating,places.userRatingCount,places.googleMapsUri,places.types,places.location"
+                    // Request essential fields ONLY.
+                    "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.googleMapsUri,places.rating,places.userRatingCount,places.location,places.types"
                 },
                 body: JSON.stringify(requestBody)
             });
 
             const data = await res.json();
-            if (data.places) return data.places.map((p: any) => ({ ...p, isPinned })); // Mark as pinned
+            if (data.places) return data.places;
 
             if (data.error) console.error(`[Compass] Places API Error for "${query}":`, data.error.message);
             return [];
+
         } catch (e) {
             console.error(`[Compass] Network Error for "${query}":`, e);
             return [];
         }
     };
 
-    // Execute Pinned Queries First
-    if (pinnedQueries.length > 0) {
-        console.log(`[Compass] Fetching PINNED items: ${JSON.stringify(pinnedQueries)}`);
-        const pinnedResults = await Promise.all(pinnedQueries.map(q => fetchForQuery(q, true)));
-        for (const group of pinnedResults) {
-            for (const place of group) {
-                if (!place.id || seenPlaceIds.has(place.id)) continue;
-                seenPlaceIds.add(place.id);
-                candidates.push(place);
-            }
-        }
-    }
-
-    // Execute General Queries
-    const safeQueries = queries.slice(0, 3);
-    const results = await Promise.all(safeQueries.map(q => fetchForQuery(q, false)));
+    const results = await Promise.all(safeQueries.map(q => fetchForQuery(q)));
 
     for (const group of results) {
         for (const place of group) {
             if (!place.id || seenPlaceIds.has(place.id)) continue;
 
+            // Basic filtering
             const name = place.displayName?.text || "";
             if (!name) continue;
+
             if (input.avoid && name.toLowerCase().includes(input.avoid.toLowerCase())) continue;
 
             seenPlaceIds.add(place.id);
@@ -295,7 +217,7 @@ async function fetchCandidates(
         }
     }
 
-    console.log(`[Compass] Total candidates: ${candidates.length} (Pinned: ${candidates.filter((c: any) => c.isPinned).length})`);
+    console.log(`[Compass] Total unique candidates found: ${candidates.length}`);
     return candidates;
 }
 
@@ -312,13 +234,12 @@ async function callOpenAI(
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 
-    // Prepare candidate list for AI
+    // Prepare candidate list for AI (minimized tokens)
     const candidateList = candidates.map(c => ({
         id: c.id,
         name: c.displayName.text,
         rating: c.rating,
-        tags: c.types ? c.types.slice(0, 3).join(", ") : "",
-        isPinned: c.isPinned ? "REQUIRED" : "Optional"
+        tags: c.types ? c.types.slice(0, 3).join(", ") : ""
     }));
 
     const systemPrompt = `You are a strict Selection Engine for a Paris itinerary builder.
@@ -329,8 +250,7 @@ async function callOpenAI(
     RULES:
     1. You MUST ONLY select items from the "CANDIDATES" list.
     2. You MUST reference selected items by their exact "id".
-    3. You MUST include candidates marked as "REQUIRED" (isPinned) in your selection. 
-       **EXCEPTION**: If multiple REQUIRED input items are different locations of the EXACT SAME BRAND (e.g. "Cedric Grolet Opera" vs "Cedric Grolet Meurice"), select ONLY ONE (the best fit) to avoid duplicates.
+    3. DO NOT invent, hallucinate, or modify Place IDs or Names.
     4. Start Time: ${planContext.startTime}. End Time: ${planContext.endTime}.
     5. Accommodate "Existing Items" (fix them in place) if present.
     
@@ -339,7 +259,8 @@ async function callOpenAI(
        "items": [
           { "placeId": "EXACT_ID_FROM_CANDIDATES", "durationMin": 90, "notes": "Brief reason for selection" }
        ]
-    }`;
+    }
+    `;
 
     const userPrompt = JSON.stringify({
         request: {
@@ -427,7 +348,7 @@ async function callOpenAI(
 // ------------------------------------------------------------------
 
 export async function generateCompassItinerary(planId: string, input: GenerateInput) {
-    console.log("--> generateCompassItinerary (Strict + Chat) called for plan:", planId);
+    console.log("--> generateCompassItinerary (Strict) called for plan:", planId);
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -442,26 +363,8 @@ export async function generateCompassItinerary(planId: string, input: GenerateIn
         return { error: { type: "RATE_LIMIT", message: "Daily limit reached" }, usage: rateLimit };
     }
 
-    // 0. Extract Chat Preferences if available
-    let extractedInput = { ...input };
-    if (input.chatPrompt && input.chatPrompt.length > 10) {
-        const extracted = await extractPreferencesFromChat(input.chatPrompt);
-
-        // Merge logic: Chat constraints append to/override Form constraints
-        if (extracted.mustInclude) {
-            extractedInput.mustInclude = input.mustInclude
-                ? `${input.mustInclude}, ${extracted.mustInclude}`
-                : extracted.mustInclude;
-        }
-        if (extracted.activityTypes) {
-            extractedInput.activityTypes = [...(input.activityTypes || []), ...extracted.activityTypes];
-        }
-        if (extracted.avoid) extractedInput.avoid = extracted.avoid; // Override avoid
-        if (extracted.includeFood !== undefined) extractedInput.includeFood = extracted.includeFood;
-    }
-
     // 1. Fetch Candidates (Source of Truth)
-    let candidates = await fetchCandidates(plan.city || "Paris", extractedInput);
+    let candidates = await fetchCandidates(plan.city || "Paris", input);
 
     // 2. Fallback if Places API fails or returns 0
     if (candidates.length === 0) {
@@ -478,7 +381,7 @@ export async function generateCompassItinerary(planId: string, input: GenerateIn
             endTime: plan.end_time,
             people_count: plan.people_count
         },
-        extractedInput,
+        input,
         input.workAroundExisting && plan.itinerary?.items ? plan.itinerary.items : [] // existing items
     );
 
