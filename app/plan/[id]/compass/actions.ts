@@ -117,6 +117,57 @@ async function incrementUsage(supabase: any, userId: string) {
 }
 
 // ------------------------------------------------------------------
+// EXTRACT PLACES FROM CHAT (NEW)
+// ------------------------------------------------------------------
+
+async function extractPlacesFromChat(chatLog: string): Promise<string[]> {
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) {
+        console.warn("Missing OPENAI_API_KEY for place extraction");
+        return [];
+    }
+
+    const systemPrompt = `You are a helper that extracts specific place names from a travel chat.
+    
+    TASK:
+    Identify specific physical venues, landmarks, restaurants, or hotels mentioned in the conversation history as "requested" or "suggested".
+    Ignore general categories like "museums" or "parks".
+    
+    OUTPUT:
+    A JSON object with a single key "places" containing an array of strings.
+    Example: { "places": ["Cedric Grolet", "Louvre Museum"] }
+    `;
+
+    try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${OPENAI_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-mini", // Fast & cheap
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: chatLog }
+                ],
+                temperature: 0.1,
+                response_format: { type: "json_object" }
+            })
+        });
+
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message);
+
+        const result = JSON.parse(data.choices[0].message.content);
+        return result.places || [];
+    } catch (e) {
+        console.error("Place Extraction Error:", e);
+        return [];
+    }
+}
+
+// ------------------------------------------------------------------
 // 1. GOOGLE PLACES CANDIDATE FETCHING (Strict V1)
 // ------------------------------------------------------------------
 
@@ -157,11 +208,23 @@ async function fetchCandidates(
     const seenPlaceIds = new Set<string>();
     const candidates: any[] = [];
 
-    // Max 3 queries to keep it fast
-    const safeQueries = queries.slice(0, 3);
-    console.log(`[Compass] Fetching candidates for queries: ${JSON.stringify(safeQueries)}`);
+    // ------------------------------------------------------
+    // 1. Extract Specific Places from Chat (NEW)
+    // ------------------------------------------------------
+    let explicitPlaceNames: string[] = [];
+    if (input.chatPrompt) {
+        console.log("[Compass] Extracting places from chat...");
+        explicitPlaceNames = await extractPlacesFromChat(input.chatPrompt);
+        console.log(`[Compass] Extracted places: ${JSON.stringify(explicitPlaceNames)}`);
+    }
 
-    const fetchForQuery = async (query: string) => {
+    // ------------------------------------------------------
+    // 2. Fetch Generic Candidates (Branch A)
+    // ------------------------------------------------------
+    const safeQueries = queries.slice(0, 3);
+    console.log(`[Compass] Fetching candidates for generic queries: ${JSON.stringify(safeQueries)}`);
+
+    const fetchForQuery = async (query: string, isExplicit: boolean = false) => {
         const url = `https://places.googleapis.com/v1/places:searchText`;
 
         // Strict Paris Bias
@@ -173,7 +236,7 @@ async function fetchCandidates(
                     radius: 5000.0 // 5km strict center radius
                 }
             },
-            maxResultCount: 8 // Get decent chunk per query
+            maxResultCount: isExplicit ? 1 : 8 // Get decent chunk per query
         };
 
         try {
@@ -189,7 +252,13 @@ async function fetchCandidates(
             });
 
             const data = await res.json();
-            if (data.places) return data.places;
+            if (data.places) {
+                // Tag explicit results
+                if (isExplicit) {
+                    return data.places.map((p: any) => ({ ...p, chat_explicit: true }));
+                }
+                return data.places;
+            }
 
             if (data.error) console.error(`[Compass] Places API Error for "${query}":`, data.error.message);
             return [];
@@ -200,9 +269,21 @@ async function fetchCandidates(
         }
     };
 
-    const results = await Promise.all(safeQueries.map(q => fetchForQuery(q)));
+    const genericResultsPromise = Promise.all(safeQueries.map(q => fetchForQuery(q, false)));
 
-    for (const group of results) {
+    // ------------------------------------------------------
+    // 3. Fetch Specific Candidates (Branch B)
+    // ------------------------------------------------------
+    const baseSearchLocation = "Paris, France";
+    const specificResultsPromise = Promise.all(explicitPlaceNames.map(name =>
+        fetchForQuery(`${name} in ${baseSearchLocation}`, true)
+    ));
+
+    const [genericResults, specificResults] = await Promise.all([genericResultsPromise, specificResultsPromise]);
+
+    const allGroups = [...genericResults, ...specificResults];
+
+    for (const group of allGroups) {
         for (const place of group) {
             if (!place.id || seenPlaceIds.has(place.id)) continue;
 
@@ -239,7 +320,8 @@ async function callOpenAI(
         id: c.id,
         name: c.displayName.text,
         rating: c.rating,
-        tags: c.types ? c.types.slice(0, 3).join(", ") : ""
+        tags: c.types ? c.types.slice(0, 3).join(", ") : "",
+        chat_explicit: c.chat_explicit // Pass the tag to LLM context
     }));
 
     const systemPrompt = `You are a strict Selection Engine for a Paris itinerary builder.
@@ -253,7 +335,8 @@ async function callOpenAI(
     3. DO NOT invent, hallucinate, or modify Place IDs or Names.
     4. Start Time: ${planContext.startTime}. End Time: ${planContext.endTime}.
     5. Accommodate "Existing Items" (fix them in place) if present.
-    
+    6. PRIORITIZE items with "chat_explicit": true. These were specifically requested by the user.
+
     OUTPUT FORMAT (Strict JSON):
     {
        "items": [
