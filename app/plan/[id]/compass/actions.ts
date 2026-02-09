@@ -120,6 +120,7 @@ async function incrementUsage(supabase: any, userId: string) {
 // EXTRACT PLACES FROM CHAT (NEW)
 // ------------------------------------------------------------------
 
+
 async function extractPlacesFromChat(chatLog: string): Promise<string[]> {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) {
