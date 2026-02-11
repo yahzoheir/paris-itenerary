@@ -324,7 +324,7 @@ function SortableItem({
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between">
-                  <h3 className="font-semibold text-zinc-900 truncate">{block.item.title}</h3>
+                  <h3 className="font-semibold text-zinc-900 break-words pr-2">{block.item.title}</h3>
                   {block.item.fixedStartTime && (
                     <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700">Pinned</span>
                   )}
@@ -606,7 +606,7 @@ export default function ItineraryEditor({
       {/* Controls Bar - Only show if not readOnly */}
       {!readOnly && (
         <div className="flex justify-between items-center mb-6">
-          <div className="text-sm text-zinc-500 font-medium">
+          <div className="text-sm text-zinc-500 font-medium flex items-center h-9">
             {items.length > 0 ? `${items.length} activities planned` : "Start adding activities"}
           </div>
           <div className="flex items-center gap-3">
