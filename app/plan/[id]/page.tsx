@@ -485,13 +485,13 @@ export default function PlanPage() {
       {/* Compass Chat FAB */}
       <button
         onClick={() => setIsCompassOpen(true)}
-        className="fixed bottom-6 right-6 z-50 bg-zinc-900 text-white p-4 rounded-full shadow-2xl hover:bg-zinc-800 hover:scale-105 transition-all duration-300 group flex items-center gap-0 overflow-hidden"
+        className="fixed bottom-6 right-6 z-50 bg-zinc-900 text-white px-6 py-4 rounded-full shadow-2xl hover:bg-zinc-800 hover:scale-105 transition-all duration-300 flex items-center gap-3"
         aria-label="Open Compass Chat"
       >
-        <span className="text-xl group-hover:animate-spin-slow">🧭</span>
-        <span className="max-w-0 group-hover:max-w-[200px] overflow-hidden transition-all duration-500 ease-in-out whitespace-nowrap text-sm font-medium pl-0 group-hover:pl-2">
+        <span className="text-sm font-medium whitespace-nowrap">
           Chat with Compass
         </span>
+        <span className="text-xl hover:animate-spin-slow">🧭</span>
       </button>
       <GenerateWithCompassModal
         isOpen={isCompassOpen}
