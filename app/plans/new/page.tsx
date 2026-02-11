@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import { Button } from "../../ui/Button";
 
 // Convert time from input format (HH:MM) to database format (HH:MM:SS)
 function formatTimeForDatabase(time: string): string | null {
@@ -126,15 +127,16 @@ export default function NewPlanPage() {
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label
                 htmlFor="plan_name"
-                className="block text-sm font-medium text-zinc-700 mb-1"
+                className="block text-sm font-medium text-zinc-900 mb-1"
               >
-                Plan Name <span className="text-zinc-400 font-normal">(Optional)</span>
+                Plan name
               </label>
+              <p className="text-xs text-zinc-400 mb-2">Optional</p>
               <input
                 type="text"
                 id="plan_name"
@@ -143,56 +145,58 @@ export default function NewPlanPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-zinc-300"
               />
             </div>
 
-            <div>
-              <label
-                htmlFor="start_time"
-                className="block text-sm font-medium text-zinc-700 mb-1"
-              >
-                Start time
-              </label>
-              <input
-                type="time"
-                id="start_time"
-                value={formData.start_time}
-                onChange={(e) =>
-                  setFormData({ ...formData, start_time: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="mt-1 text-xs text-zinc-500">
-                Leave empty to use default (10:00)
-              </p>
-            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label
+                  htmlFor="start_time"
+                  className="block text-sm font-medium text-zinc-900 mb-2"
+                >
+                  Start time
+                </label>
+                <input
+                  type="time"
+                  id="start_time"
+                  value={formData.start_time}
+                  onChange={(e) =>
+                    setFormData({ ...formData, start_time: e.target.value })
+                  }
+                  className="w-full px-4 py-3 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none bg-white"
+                />
+                <p className="mt-2 text-xs text-zinc-400 font-medium">
+                  Default: 10:00
+                </p>
+              </div>
 
-            <div>
-              <label
-                htmlFor="end_time"
-                className="block text-sm font-medium text-zinc-700 mb-1"
-              >
-                End time
-              </label>
-              <input
-                type="time"
-                id="end_time"
-                value={formData.end_time}
-                onChange={(e) =>
-                  setFormData({ ...formData, end_time: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="mt-1 text-xs text-zinc-500">
-                Leave empty to use default (18:00)
-              </p>
+              <div>
+                <label
+                  htmlFor="end_time"
+                  className="block text-sm font-medium text-zinc-900 mb-2"
+                >
+                  End time
+                </label>
+                <input
+                  type="time"
+                  id="end_time"
+                  value={formData.end_time}
+                  onChange={(e) =>
+                    setFormData({ ...formData, end_time: e.target.value })
+                  }
+                  className="w-full px-4 py-3 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none bg-white"
+                />
+                <p className="mt-2 text-xs text-zinc-400 font-medium">
+                  Default: 18:00
+                </p>
+              </div>
             </div>
 
             <div>
               <label
                 htmlFor="people_count"
-                className="block text-sm font-medium text-zinc-700 mb-1"
+                className="block text-sm font-medium text-zinc-900 mb-2"
               >
                 People count
               </label>
@@ -204,41 +208,43 @@ export default function NewPlanPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, people_count: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none bg-white"
               />
-              <p className="mt-1 text-xs text-zinc-500">
-                Leave empty to use default (1)
+              <p className="mt-2 text-xs text-zinc-400 font-medium">
+                Default: 1
               </p>
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-700">{error}</p>
+              <div className="p-3 bg-red-50 border border-red-100 rounded-lg animate-in fade-in slide-in-from-top-1">
+                <p className="text-sm text-red-600 font-medium">{error}</p>
               </div>
             )}
 
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => router.push("/plans")}
-                disabled={isCreating}
-                className="flex-1 px-4 py-2 bg-zinc-200 text-zinc-700 rounded-lg hover:bg-zinc-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-              >
-                Cancel
-              </button>
-              <button
+            <div className="flex flex-col gap-3 pt-4">
+              <Button
                 type="submit"
                 disabled={isCreating}
-                className="flex-1 px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                className="w-full h-12 bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm rounded-xl font-medium tracking-wide active:scale-[0.99] transition-all"
               >
                 {isCreating ? "Creating..." : "Create plan"}
-              </button>
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => router.push("/plans")}
+                disabled={isCreating}
+                className="w-full h-10 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl text-sm font-medium"
+              >
+                Cancel
+              </Button>
             </div>
           </form>
         </div>
 
-        <p className="mt-3 text-xs text-zinc-500">
-          City is set to Paris. Date will be today.
+        <p className="mt-8 text-xs text-center text-zinc-400 font-medium tracking-wide">
+          Planning for Paris today 🇫🇷
         </p>
       </div>
     </main>
