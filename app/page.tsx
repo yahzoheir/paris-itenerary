@@ -37,7 +37,7 @@ export default function HomePage() {
             ) : email ? (
               <div className="flex items-center gap-4">
                 <span className="text-sm text-zinc-600 hidden sm:block">{email}</span>
-                <Button onClick={logout} variant="ghost" size="sm">Logout</Button>
+                <Button onClick={logout} variant="ghost" size="sm" className="text-zinc-400 hover:text-zinc-600">Logout</Button>
                 <a href="/plans">
                   <Button variant="primary" size="sm">My Plans</Button>
                 </a>
@@ -52,47 +52,66 @@ export default function HomePage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-6 max-w-5xl mx-auto">
-        <div className="flex flex-col md:flex-row items-center gap-12">
+      <section className="relative pt-32 pb-24 px-6 max-w-5xl mx-auto">
+        <div className="flex flex-col md:flex-row items-center gap-12 mb-16">
           <div className="flex-1 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-100/80 border border-zinc-200 text-xs font-medium text-zinc-600">
-              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-              The smart itinerary planner
-            </div>
-            <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-zinc-900 leading-[1.1]">
-              Craft your perfect <br /> Day in <span className="text-zinc-400">Paris.</span>
-            </h1>
-            <p className="text-lg text-zinc-600 leading-relaxed max-w-md">
-              Forget chaotic spreadsheets. Design elegant, time-perfected itineraries for the City of Light with effortless drag-and-drop.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <a href={email ? "/plans" : "/login"}>
-                <Button size="lg" className="rounded-full px-8">
-                  {email ? "Go to my plans" : "Start planning"}
-                </Button>
-              </a>
-              <Button variant="secondary" size="lg" className="rounded-full" onClick={scrollToHowItWorks}>
-                See how it works
-              </Button>
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50/80 border border-blue-100 text-xs font-medium text-blue-700">
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+              AI itinerary planner
             </div>
 
-            <div className="pt-4 flex gap-8 text-sm text-zinc-500 font-medium">
-              <span className="flex items-center gap-2">✓ Smart scheduling</span>
-              <span className="flex items-center gap-2">✓ Drag & drop</span>
-              <span className="flex items-center gap-2">✓ Shareable</span>
+            {/* Headline */}
+            <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-zinc-900 leading-[1.05]">
+              Design your perfect <br /> day in <span className="text-blue-600">Paris.</span>
+            </h1>
+
+            {/* Subtext */}
+            <p className="text-lg text-zinc-600 leading-relaxed max-w-md">
+              <span className="font-semibold text-blue-600">AI</span>-powered itineraries built around you.
+            </p>
+
+            {/* Buttons */}
+            <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+              <a href={email ? "/plans" : "/login"} className="w-full md:w-auto">
+                <Button size="lg" className="rounded-full w-full md:w-auto min-h-[48px] px-8 bg-zinc-900 hover:bg-zinc-800 text-white font-medium shadow-lg shadow-zinc-200/50">
+                  Start Planning
+                </Button>
+              </a>
+              <Button
+                variant="secondary"
+                size="lg"
+                className="rounded-full w-full md:w-auto min-h-[48px] border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
+                onClick={scrollToHowItWorks}
+              >
+                See How It Works
+              </Button>
             </div>
           </div>
 
+          {/* Interaction/Illustration */}
           <div className="flex-1 relative w-full aspect-square max-w-md md:max-w-lg">
-            {/* Simple aesthetic placeholder using generated asset if available, or CSS shape */}
-            <div className="absolute inset-0 bg-zinc-100 rounded-[3rem] rotate-3 z-0 border border-zinc-200" />
-            <div className="absolute inset-0 bg-white rounded-[3rem] -rotate-2 z-10 shadow-2xl shadow-zinc-200/50 overflow-hidden border border-zinc-100">
+            <div className="absolute inset-0 bg-blue-50 rounded-[3rem] rotate-3 z-0 border border-blue-100" />
+            <div className="absolute inset-0 bg-white rounded-[3rem] -rotate-2 z-10 shadow-2xl shadow-blue-100/50 overflow-hidden border border-zinc-100">
               <img
                 src="/paris_hero_minimalist_1769709515570.png"
                 alt="Paris Illustration"
-                className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-700"
+                className="w-full h-full object-cover opacity-95 hover:scale-105 transition-transform duration-700"
               />
             </div>
+          </div>
+        </div>
+
+        {/* Feature List (Moved below for better mobile flow) */}
+        <div className="flex flex-wrap justify-center md:justify-start gap-4 md:gap-8 text-sm text-zinc-500 font-medium">
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-zinc-100 shadow-sm">
+            <span>⚡</span> Optimized schedules
+          </div>
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-zinc-100 shadow-sm">
+            <span>🗺</span> Smart routing
+          </div>
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-zinc-100 shadow-sm">
+            <span>🤝</span> Easy sharing
           </div>
         </div>
       </section>
