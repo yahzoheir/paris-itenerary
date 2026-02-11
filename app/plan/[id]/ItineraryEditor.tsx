@@ -609,18 +609,30 @@ export default function ItineraryEditor({
           <div className="text-sm text-zinc-500 font-medium">
             {items.length > 0 ? `${items.length} activities planned` : "Start adding activities"}
           </div>
-          <div className="flex gap-2">
-            {!showAddPanel && !isReorderMode && !editingId && items.length > 0 && (
-              <Button variant="secondary" size="sm" onClick={handleReorderStart}>Edit</Button>
+          <div className="flex items-center gap-3">
+            {/* Reorder/Edit Toggle */}
+            {!showAddPanel && !editingId && items.length > 0 && (
+              <Button
+                variant={isReorderMode ? "primary" : "ghost"}
+                size="sm"
+                onClick={isReorderMode ? handleReorderDone : handleReorderStart}
+                className={isReorderMode ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-900"}
+                disabled={isSaving}
+              >
+                {isReorderMode ? "Done Reordering" : "Edit Order"}
+              </Button>
             )}
-            {!showAddPanel && !isReorderMode && !editingId && (
-              <Button size="sm" onClick={() => setShowAddPanel(true)}>+ Add Activity</Button>
-            )}
+
+            {/* Cancel Reorder */}
             {isReorderMode && (
-              <>
-                <Button variant="ghost" size="sm" onClick={handleReorderCancel} disabled={isSaving}>Cancel</Button>
-                <Button size="sm" onClick={handleReorderDone} disabled={isSaving}>Done Reordering</Button>
-              </>
+              <Button variant="ghost" size="sm" onClick={handleReorderCancel} disabled={isSaving}>Cancel</Button>
+            )}
+
+            {/* Add Activity Button */}
+            {!showAddPanel && !isReorderMode && !editingId && (
+              <Button size="sm" onClick={() => setShowAddPanel(true)} className="flex items-center gap-1 bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm border border-zinc-900">
+                <span className="text-lg leading-none mb-0.5">+</span> Add Activity
+              </Button>
             )}
           </div>
         </div>
