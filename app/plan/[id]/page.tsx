@@ -80,6 +80,7 @@ export default function PlanPage() {
   const [isCompassOpen, setIsCompassOpen] = useState(false);
   const [generatedItems, setGeneratedItems] = useState<ItineraryItem[] | null>(null);
   const [editorKey, setEditorKey] = useState(0);
+  const [showAddPanel, setShowAddPanel] = useState(false);
 
   const handleCompassGenerate = async (items: ItineraryItem[]) => {
     // 1. Optimistic Update (UI)
@@ -292,9 +293,29 @@ export default function PlanPage() {
   return (
     <main className="min-h-screen bg-[#fafafa] text-zinc-900 pb-20">
       {/* Header */}
+      {/* Header */}
       <div className="bg-white border-b border-zinc-200 sticky top-0 z-30">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
+          {/* Mobile Header: Back + Title + Date */}
+          <div className="flex sm:hidden items-center gap-4 w-full">
+            <a href="/plans" className="text-zinc-400 -ml-2 p-2 hover:text-zinc-600">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+            </a>
+            <div className="flex-1 min-w-0">
+              <h1 className="font-semibold text-zinc-900 truncate leading-tight">
+                {(plan?.preferences as any)?.title || plan?.city || "Loading..."}
+              </h1>
+              {plan && (
+                <p className="text-xs text-zinc-500">
+                  {new Date(plan.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </p>
+              )}
+            </div>
+            {/* Mobile: No Logout/Private badge */}
+          </div>
+
+          {/* Desktop Header */}
+          <div className="hidden sm:flex items-center gap-4">
             <a href="/" className="font-semibold text-lg tracking-tight hover:opacity-70 transition-opacity">AItinerary.</a>
             {user && (
               <>
@@ -307,7 +328,8 @@ export default function PlanPage() {
               {(plan?.preferences as any)?.title || plan?.city || "Loading..."}
             </span>
           </div>
-          <div className="flex items-center gap-3">
+
+          <div className="hidden sm:flex items-center gap-3">
             {isOwner && (
               <Button
                 onClick={togglePublic}
@@ -320,7 +342,7 @@ export default function PlanPage() {
               </Button>
             )}
             {user ? (
-              <Button onClick={logout} variant="ghost" size="sm" className="hidden sm:inline-flex">Logout</Button>
+              <Button onClick={logout} variant="ghost" size="sm">Logout</Button>
             ) : (
               <a href={`/login?next=/plan/${planId}`}>
                 <Button variant="primary" size="sm">Login</Button>
@@ -346,26 +368,27 @@ export default function PlanPage() {
           </div>
         ) : (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Hero Header (No Card) */}
-            <div className="relative mb-8">
-              <div className="h-48 rounded-2xl bg-zinc-900 overflow-hidden relative shadow-lg">
+            {/* Hero Header (Reduced Height) */}
+            <div className="relative mb-6">
+              <div className="h-36 sm:h-48 rounded-2xl bg-zinc-900 overflow-hidden relative shadow-lg">
                 <img
                   src="/paris_hero_minimalist_1769709515570.png"
                   className="w-full h-full object-cover opacity-60 mix-blend-overlay"
                   alt=""
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 p-8 w-full">
+                <div className="absolute bottom-0 left-0 p-6 w-full">
                   <div className="flex items-end justify-between">
                     <div>
-                      <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
+                      <h1 className="text-3xl sm:text-4xl font-bold text-white mb-1 flex items-center gap-3">
+                        {/* Title Editing Logic (Simplified for Mobile) */}
                         {isEditingTitle ? (
                           <div className="flex items-center gap-2">
                             <input
                               type="text"
                               value={newTitle}
                               onChange={(e) => setNewTitle(e.target.value)}
-                              className="bg-white/10 text-white px-3 py-1 rounded-lg border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/50 text-3xl font-bold w-full min-w-[300px]"
+                              className="bg-white/10 text-white px-3 py-1 rounded-lg border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/50 text-2xl font-bold w-full min-w-[200px]"
                               autoFocus
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') handleSaveTitle();
@@ -373,38 +396,22 @@ export default function PlanPage() {
                               }}
                             />
                             <Button size="sm" onClick={handleSaveTitle} className="bg-white text-zinc-900 hover:bg-zinc-100">Save</Button>
-                            <Button size="sm" variant="ghost" onClick={() => setIsEditingTitle(false)} className="text-white hover:bg-white/10">Cancel</Button>
                           </div>
                         ) : (
                           <>
                             <span
                               className={isOwner ? "cursor-pointer hover:underline decoration-white/30 decoration-2 underline-offset-4" : ""}
                               onClick={() => isOwner && setIsEditingTitle(true)}
-                              title={isOwner ? "Click to rename" : ""}
                             >
                               {(plan.preferences as any)?.title || plan.city}
                             </span>
-                            {isOwner && (
-                              <button
-                                onClick={() => setIsEditingTitle(true)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-white/20 rounded-full text-white/70 hover:text-white"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                              </button>
-                            )}
                           </>
                         )}
                       </h1>
                       <div className="flex items-center gap-3 text-white/90">
-                        <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-sm font-medium border border-white/10">
-                          {new Date(plan.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        <span className="text-sm font-medium opacity-90">
+                          {new Date(plan.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
                         </span>
-                        {plan.is_public && (
-                          <span className="bg-emerald-500/20 backdrop-blur-md px-3 py-1 rounded-full text-sm font-medium text-emerald-100 border border-emerald-500/30 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            Publicly Visible
-                          </span>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -412,26 +419,100 @@ export default function PlanPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-              {/* Main Content: Itinerary */}
-              <div className="lg:col-span-2 space-y-6">
-                <div className="flex items-center justify-between">
+            {/* AI-First Primary Actions */}
+            {!readOnly && (
+              <div className="flex flex-col gap-3 mb-8">
+                <Button
+                  onClick={() => setIsCompassOpen(true)}
+                  className="w-full bg-[#1F2937] hover:bg-[#374151] text-white shadow-sm h-12 text-base font-medium"
+                >
+                  Generate with Compass
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowAddPanel(true)}
+                  className="w-full text-zinc-500 hover:text-zinc-900 h-10 text-sm"
+                >
+                  Add activity manually
+                </Button>
+              </div>
+            )}
+
+            {/* Compact Trip Overview */}
+            <div className="bg-zinc-50 rounded-xl border border-zinc-100 p-4 mb-8 flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <div>
+                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-0.5">Time</div>
+                  <div className="font-semibold text-zinc-900 text-sm">
+                    {formatTimeForDisplay(plan.start_time)} – {formatTimeForDisplay(plan.end_time)}
+                  </div>
+                </div>
+                <div className="w-px h-8 bg-zinc-200/60" />
+                <div>
+                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-0.5">People</div>
+                  <div className="font-semibold text-zinc-900 text-sm">{plan.people_count ?? 1}</div>
+                </div>
+              </div>
+              {isOwner && (
+                <button
+                  onClick={handleEditTimeWindow}
+                  className="text-xs font-medium text-zinc-500 hover:text-blue-600 px-2 py-1 hover:bg-zinc-100 rounded-md transition-colors"
+                >
+                  Adjust
+                </button>
+              )}
+            </div>
+
+            {/* Settings / Adjust Modal (Inline for now if editing) */}
+            {isEditingTimeWindow && isOwner && (
+              <div className="mb-8 p-4 bg-white border border-blue-100 rounded-xl shadow-sm animate-in slide-in-from-top-2">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Start Time</label>
+                      <input type="time" value={timeWindowForm.start_time} onChange={e => setTimeWindowForm({ ...timeWindowForm, start_time: e.target.value })} className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-500 mb-1">End Time</label>
+                      <input type="time" value={timeWindowForm.end_time} onChange={e => setTimeWindowForm({ ...timeWindowForm, end_time: e.target.value })} className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 mb-1">Guests</label>
+                    <input type="number" min="1" value={timeWindowForm.people_count} onChange={e => setTimeWindowForm({ ...timeWindowForm, people_count: e.target.value })} className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm" />
+                  </div>
+                  <div className="flex gap-2 justify-end pt-2">
+                    <Button size="sm" variant="ghost" onClick={handleCancelTimeWindow}>Cancel</Button>
+                    <Button size="sm" onClick={handleSaveTimeWindow}>Save Changes</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Simplified Sharing Toggle */}
+            {isOwner && (
+              <div className="mb-10 flex items-center justify-between px-1">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-zinc-900">Share this plan</span>
+                  <span className="text-xs text-zinc-500">{plan.is_public ? "Publicly visible" : "Private (only you)"}</span>
+                </div>
+                <div
+                  onClick={togglePublic}
+                  className={`w-10 h-6 rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out ${plan.is_public ? 'bg-zinc-900' : 'bg-zinc-200'}`}
+                >
+                  <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${plan.is_public ? 'translate-x-4' : 'translate-x-0'}`} />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-6">
+              {/* Main Content: Itinerary - Single Column Now */}
+              <div className="space-y-6">
+                <div className="flex items-center justify-between mb-2">
                   <h2 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
                     <span className="w-1 h-6 bg-blue-600 rounded-full inline-block"></span>
                     Itinerary
                   </h2>
-
-                  {!readOnly && (
-                    <div className="flex items-center gap-2">
-                      <Button onClick={() => setIsCompassOpen(true)} size="sm" className="bg-zinc-900 hover:bg-zinc-800 text-white border-zinc-900 shadow-sm flex items-center gap-2">
-                        <span>🧭</span>
-                        Generate with Compass
-                      </Button>
-                      <p className="hidden sm:block text-xs text-zinc-500 max-w-[200px] leading-tight">
-                        Compass uses your time window, group size, and preferences to build a personalized itinerary.
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 <div className="relative pl-4 border-l border-zinc-200 ml-2 space-y-8">
@@ -442,94 +523,11 @@ export default function PlanPage() {
                     planStartTime={plan.start_time}
                     planEndTime={plan.end_time}
                     readOnly={readOnly}
+                    isAddPanelOpen={showAddPanel}
+                    onSetAddPanelOpen={setShowAddPanel}
+                    onOpenCompass={() => setIsCompassOpen(true)}
                   />
                 </div>
-              </div>
-
-              {/* Sidebar: Settings */}
-              <div className="lg:col-span-1 space-y-6">
-                <Card className="sticky top-24">
-                  <CardHeader className="bg-zinc-50/50">
-                    <h3 className="font-semibold text-zinc-900">Trip Overview</h3>
-                  </CardHeader>
-                  <CardBody>
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        </div>
-                        <div>
-                          <div className="text-xs text-zinc-500 font-medium uppercase tracking-wide">Time Window</div>
-                          <div className="font-semibold text-zinc-900">
-                            {formatTimeForDisplay(plan.start_time)} – {formatTimeForDisplay(plan.end_time)}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                        </div>
-                        <div>
-                          <div className="text-xs text-zinc-500 font-medium uppercase tracking-wide">Travelers</div>
-                          <div className="font-semibold text-zinc-900">
-                            {plan.people_count ?? 1} people
-                          </div>
-                        </div>
-                      </div>
-
-                      {!isEditingTimeWindow && isOwner && (
-                        <Button variant="outline" size="sm" onClick={handleEditTimeWindow} className="w-full">
-                          Adjust Settings
-                        </Button>
-                      )}
-
-                      {isEditingTimeWindow && isOwner && (
-                        <div className="pt-4 border-t border-zinc-100 animate-in slide-in-from-top-2">
-                          <div className="space-y-3">
-                            <div>
-                              <label className="block text-xs font-semibold text-zinc-500 mb-1">Start Time</label>
-                              <input type="time" value={timeWindowForm.start_time} onChange={e => setTimeWindowForm({ ...timeWindowForm, start_time: e.target.value })} className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm" />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-semibold text-zinc-500 mb-1">End Time</label>
-                              <input type="time" value={timeWindowForm.end_time} onChange={e => setTimeWindowForm({ ...timeWindowForm, end_time: e.target.value })} className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm" />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-semibold text-zinc-500 mb-1">Guests</label>
-                              <input type="number" min="1" value={timeWindowForm.people_count} onChange={e => setTimeWindowForm({ ...timeWindowForm, people_count: e.target.value })} className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-sm" />
-                            </div>
-                          </div>
-                          <div className="flex gap-2 mt-4">
-                            <Button size="sm" variant="ghost" className="flex-1" onClick={handleCancelTimeWindow}>Cancel</Button>
-                            <Button size="sm" className="flex-1" onClick={handleSaveTimeWindow}>Save</Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardBody>
-                </Card>
-
-                {/* Share Card for Owner */}
-                {isOwner && (
-                  <Card>
-                    <CardBody className="space-y-4">
-                      <h3 className="font-semibold text-sm text-zinc-900">Sharing</h3>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-zinc-500">Share with friends</span>
-                        <div
-                          onClick={togglePublic}
-                          className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${plan.is_public ? 'bg-green-500' : 'bg-zinc-200'}`}
-                        >
-                          <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${plan.is_public ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </div>
-                      </div>
-                      <p className="text-xs text-zinc-400">
-                        {plan.is_public ? "Anyone with the link can see where you're going." : "Only you can see this."}
-                      </p>
-                    </CardBody>
-                  </Card>
-                )}
               </div>
             </div>
             {/* Debug Section */}

@@ -34,7 +34,10 @@ interface ItineraryEditorProps {
   initialItems: ItineraryItem[];
   planStartTime: string | null;
   planEndTime: string | null;
-  readOnly?: boolean; // New prop
+  readOnly?: boolean;
+  isAddPanelOpen?: boolean;
+  onSetAddPanelOpen?: (isOpen: boolean) => void;
+  onOpenCompass?: () => void;
 }
 
 type ScheduledBlock =
@@ -397,9 +400,17 @@ export default function ItineraryEditor({
   planStartTime,
   planEndTime,
   readOnly = false,
+  isAddPanelOpen,
+  onSetAddPanelOpen,
+  onOpenCompass,
 }: ItineraryEditorProps) {
   const [items, setItems] = useState<ItineraryItem[]>(initialItems);
-  const [showAddPanel, setShowAddPanel] = useState(false);
+  const [internalShowAddPanel, setInternalShowAddPanel] = useState(false);
+
+  // Use controlled state if provided, otherwise internal
+  const showAddPanel = isAddPanelOpen !== undefined ? isAddPanelOpen : internalShowAddPanel;
+  const setShowAddPanel = onSetAddPanelOpen || setInternalShowAddPanel;
+
   const [isSaving, setIsSaving] = useState(false);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [reorderStartItems, setReorderStartItems] = useState<ItineraryItem[]>([]);
@@ -710,15 +721,23 @@ export default function ItineraryEditor({
 
       <div className="space-y-0 relative pl-4">
         {scheduledBlocks.length === 0 && !showAddPanel ? (
-          <div className="text-center py-12 border-2 border-dashed border-zinc-200 rounded-2xl bg-zinc-50/50">
-            <button
-              onClick={() => setShowAddPanel(true)}
-              className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-zinc-100 text-zinc-300 hover:text-blue-600 hover:border-blue-200 hover:scale-105 transition-all cursor-pointer"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-            </button>
-            <p className="text-zinc-500 font-medium">Your itinerary is empty</p>
-            <p className="text-zinc-400 text-sm mt-1">Add your first activity to start planning</p>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mb-4">
+              <span className="text-2xl">✨</span>
+            </div>
+            <h3 className="text-lg font-semibold text-zinc-900">Your day is empty</h3>
+            <p className="text-sm text-zinc-500 mt-1 mb-6">Start with AI or build it manually.</p>
+
+            <div className="flex flex-col gap-3 w-full max-w-xs transition-opacity duration-200">
+              {onOpenCompass && (
+                <Button onClick={onOpenCompass} className="w-full bg-[#1F2937] hover:bg-[#374151] text-white shadow-sm">
+                  Generate with Compass
+                </Button>
+              )}
+              <Button variant="ghost" onClick={() => setShowAddPanel(true)} className="w-full">
+                Add activity manually
+              </Button>
+            </div>
           </div>
         ) : (
           <DndContext
