@@ -399,33 +399,22 @@ export default function PlanPage() {
                 </div>
               </div>
 
-              {/* Privacy Toggle (Bottom Right of Hero) */}
-              {isOwner && (
-                <div className="absolute bottom-8 right-8 z-20">
-                  <button
-                    onClick={togglePublic}
-                    className="group flex items-center gap-3 bg-black/40 backdrop-blur-md border border-white/10 hover:bg-black/60 rounded-full pl-4 pr-1.5 py-1.5 transition-all shadow-lg hover:pr-4"
-                  >
-                    <span className="text-xs font-bold text-white/90 uppercase tracking-widest group-hover:text-white">
-                      {plan.is_public ? "Public" : "Private"}
-                    </span>
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 ${plan.is_public ? 'bg-emerald-400 text-black rotate-0' : 'bg-white/10 text-white rotate-0 group-hover:bg-white/20'}`}>
-                      {plan.is_public ? (
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
-                      ) : (
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                      )}
-                    </div>
-                  </button>
-                </div>
-              )}
+              {/* Privacy Toggle Removed */}
             </div>
 
             <div className="max-w-4xl mx-auto px-4 sm:px-6 -mt-20 relative z-10 pb-20">
               <div className="bg-white rounded-[2rem] shadow-xl p-6 md:p-10 border border-zinc-100 min-h-[400px]">
                 <div className="flex items-center justify-between mb-8 pb-6 border-b border-zinc-100/50">
                   <h2 className="text-2xl font-serif text-zinc-900">Your Itinerary</h2>
-                  {/* Settings button moved to top header, removed here to declutter/fix overlap */}
+                  {isOwner && (
+                    <button
+                      onClick={handleEditTimeWindow}
+                      className="text-zinc-400 hover:text-zinc-900 transition-colors p-2 rounded-full hover:bg-zinc-100"
+                      title="Plan Settings"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    </button>
+                  )}
                 </div>
 
                 {/* Settings Panel (Inline) */}
@@ -492,6 +481,18 @@ export default function PlanPage() {
           </div>
         )}
       </div>
+
+      {/* Compass Chat FAB */}
+      <button
+        onClick={() => setIsCompassOpen(true)}
+        className="fixed bottom-6 right-6 z-50 bg-zinc-900 text-white p-4 rounded-full shadow-2xl hover:bg-zinc-800 hover:scale-105 transition-all duration-300 group flex items-center gap-0 overflow-hidden"
+        aria-label="Open Compass Chat"
+      >
+        <span className="text-xl group-hover:animate-pulse">✨</span>
+        <span className="max-w-0 group-hover:max-w-[200px] overflow-hidden transition-all duration-500 ease-in-out whitespace-nowrap text-sm font-medium pl-0 group-hover:pl-2">
+          Refine with Compass
+        </span>
+      </button>
       <GenerateWithCompassModal
         isOpen={isCompassOpen}
         onClose={() => setIsCompassOpen(false)}
