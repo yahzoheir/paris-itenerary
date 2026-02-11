@@ -37,9 +37,8 @@ export default function HomePage() {
             ) : email ? (
               <div className="flex items-center gap-4">
                 <span className="text-sm text-zinc-600 hidden sm:block">{email}</span>
-                <Button onClick={logout} variant="ghost" size="sm" className="text-zinc-400 hover:text-zinc-600">Logout</Button>
-                <a href="/plans">
-                  <Button variant="primary" size="sm">My Plans</Button>
+                <a href="/plans" className="text-sm font-medium text-zinc-900 hover:text-blue-600 transition-colors">
+                  My Plans
                 </a>
               </div>
             ) : (
@@ -53,7 +52,7 @@ export default function HomePage() {
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-24 px-6 max-w-5xl mx-auto">
-        <div className="flex flex-col md:flex-row items-center gap-12 mb-16">
+        <div className="flex flex-col md:flex-row items-center gap-12 mb-12">
           <div className="flex-1 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50/80 border border-blue-100 text-xs font-medium text-blue-700">
@@ -71,46 +70,79 @@ export default function HomePage() {
               <span className="font-semibold text-blue-600">AI</span>-powered itineraries built around you.
             </p>
 
-            {/* Buttons */}
-            <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-              <a href={email ? "/plans" : "/login"} className="w-full md:w-auto">
-                <Button size="lg" className="rounded-full w-full md:w-auto min-h-[48px] px-8 bg-zinc-900 hover:bg-zinc-800 text-white font-medium shadow-lg shadow-zinc-200/50">
+            {/* Desktop Buttons (Hidden on Mobile) */}
+            <div className="hidden md:flex flex-row gap-4">
+              <a href={email ? "/plans" : "/login"}>
+                <Button size="lg" className="rounded-full px-8 bg-zinc-900 hover:bg-zinc-800 text-white font-medium shadow-lg shadow-zinc-200/50">
                   Start Planning
                 </Button>
               </a>
               <Button
-                variant="secondary"
+                variant="ghost"
                 size="lg"
-                className="rounded-full w-full md:w-auto min-h-[48px] border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
+                className="rounded-full text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50"
                 onClick={scrollToHowItWorks}
               >
                 See How It Works
               </Button>
             </div>
+
+            {/* Mobile Primary Button (Visible on Mobile) */}
+            <div className="md:hidden w-full">
+              <a href={email ? "/plans" : "/login"} className="w-full">
+                <Button size="lg" className="rounded-full w-full min-h-[56px] bg-zinc-900 hover:bg-zinc-800 text-white font-medium shadow-xl shadow-zinc-200/50 text-lg">
+                  Start Planning
+                </Button>
+              </a>
+            </div>
           </div>
 
-          {/* Interaction/Illustration */}
-          <div className="flex-1 relative w-full aspect-square max-w-md md:max-w-lg">
-            <div className="absolute inset-0 bg-blue-50 rounded-[3rem] rotate-3 z-0 border border-blue-100" />
-            <div className="absolute inset-0 bg-white rounded-[3rem] -rotate-2 z-10 shadow-2xl shadow-blue-100/50 overflow-hidden border border-zinc-100">
+          {/* Illustration - Full width, soft rounded, no heavy border */}
+          <div className="flex-1 w-full max-w-md md:max-w-lg">
+            <div className="relative w-full aspect-[4/3] md:aspect-square rounded-[2rem] overflow-hidden shadow-2xl shadow-zinc-200/50">
               <img
                 src="/paris_hero_minimalist_1769709515570.png"
                 alt="Paris Illustration"
-                className="w-full h-full object-cover opacity-95 hover:scale-105 transition-transform duration-700"
+                className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
               />
+              <div className="absolute inset-0 ring-1 ring-inset ring-black/5 rounded-[2rem]"></div>
             </div>
           </div>
         </div>
 
-        {/* Feature List (Moved below for better mobile flow) */}
-        <div className="flex flex-wrap justify-center md:justify-start gap-4 md:gap-8 text-sm text-zinc-500 font-medium">
-          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-zinc-100 shadow-sm">
+        {/* Mobile Secondary CTA & Benefits (Below Illustration on Mobile) */}
+        <div className="flex flex-col md:hidden gap-8 items-center">
+          {/* Secondary CTA - Lighter style */}
+          <button
+            onClick={scrollToHowItWorks}
+            className="text-zinc-500 font-medium text-sm hover:text-zinc-900 transition-colors py-2"
+          >
+            See How It Works
+          </button>
+
+          {/* Benefits - Prominent chips */}
+          <div className="flex flex-wrap justify-center gap-3 w-full">
+            <div className="flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-white px-4 py-3 rounded-xl border border-zinc-100 shadow-sm text-sm font-medium text-zinc-600">
+              <span>⚡</span> Optimized
+            </div>
+            <div className="flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-white px-4 py-3 rounded-xl border border-zinc-100 shadow-sm text-sm font-medium text-zinc-600">
+              <span>🗺</span> Smart routing
+            </div>
+            <div className="flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-white px-4 py-3 rounded-xl border border-zinc-100 shadow-sm text-sm font-medium text-zinc-600">
+              <span>🤝</span> Easy sharing
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Benefits (Hidden on Mobile) */}
+        <div className="hidden md:flex flex-wrap justify-start gap-8 text-sm text-zinc-500 font-medium mt-12">
+          <div className="flex items-center gap-2 bg-white px-5 py-2.5 rounded-full border border-zinc-100 shadow-sm transition-shadow hover:shadow-md">
             <span>⚡</span> Optimized schedules
           </div>
-          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-zinc-100 shadow-sm">
+          <div className="flex items-center gap-2 bg-white px-5 py-2.5 rounded-full border border-zinc-100 shadow-sm transition-shadow hover:shadow-md">
             <span>🗺</span> Smart routing
           </div>
-          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-zinc-100 shadow-sm">
+          <div className="flex items-center gap-2 bg-white px-5 py-2.5 rounded-full border border-zinc-100 shadow-sm transition-shadow hover:shadow-md">
             <span>🤝</span> Easy sharing
           </div>
         </div>
