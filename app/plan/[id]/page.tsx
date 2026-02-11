@@ -488,9 +488,9 @@ export default function PlanPage() {
         className="fixed bottom-6 right-6 z-50 bg-zinc-900 text-white p-4 rounded-full shadow-2xl hover:bg-zinc-800 hover:scale-105 transition-all duration-300 group flex items-center gap-0 overflow-hidden"
         aria-label="Open Compass Chat"
       >
-        <span className="text-xl group-hover:animate-pulse">✨</span>
+        <span className="text-xl group-hover:animate-spin-slow">🧭</span>
         <span className="max-w-0 group-hover:max-w-[200px] overflow-hidden transition-all duration-500 ease-in-out whitespace-nowrap text-sm font-medium pl-0 group-hover:pl-2">
-          Refine with Compass
+          Chat with Compass
         </span>
       </button>
       <GenerateWithCompassModal
