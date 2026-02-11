@@ -283,8 +283,8 @@ export default function PlansPage() {
                 </div>
               </div>
 
-              <div className="w-full mt-8">
-                <Button className="w-full justify-center bg-zinc-900 text-white hover:bg-zinc-800 shadow-lg shadow-zinc-200/50">
+              <div className="w-full mt-4">
+                <Button className="w-full justify-center bg-[#1F2937] hover:bg-[#374151] text-white shadow-sm hover:shadow h-12 rounded-xl font-medium tracking-[0.5px] active:scale-[0.98] transition-all duration-200">
                   Start Planning
                 </Button>
               </div>
