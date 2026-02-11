@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Image from "next/image"; // Add Next Image if preferred, but using img tag as before to be safe
+import { Playfair_Display } from "next/font/google"; // If I can import here, cool. But standard CSS var is likely better.
 
 import { supabase } from "../../lib/supabaseClient";
 import ItineraryEditor from "./ItineraryEditor";
@@ -291,231 +293,167 @@ export default function PlanPage() {
   const readOnly = !isOwner;
 
   return (
-    <main className="min-h-screen bg-[#fafafa] text-zinc-900 pb-20">
-      {/* Header */}
-      {/* Header */}
-      <div className="bg-white border-b border-zinc-200 sticky top-0 z-30">
-        <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
-          {/* Mobile Header: Back + Title + Date */}
-          <div className="flex sm:hidden items-center gap-4 w-full">
-            <a href="/plans" className="text-zinc-400 -ml-2 p-2 hover:text-zinc-600">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-            </a>
-            <div className="flex-1 min-w-0">
-              <h1 className="font-semibold text-zinc-900 truncate leading-tight">
-                {(plan?.preferences as any)?.title || plan?.city || "Loading..."}
-              </h1>
-              {plan && (
-                <p className="text-xs text-zinc-500">
-                  {new Date(plan.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                </p>
-              )}
-            </div>
-            {/* Mobile: No Logout/Private badge */}
-          </div>
+    <main className="min-h-screen bg-[#fafafa] text-zinc-900 pb-20 font-sans selection:bg-zinc-900 selection:text-white">
+      {/* Absolute Header for Navigation */}
+      <div className="absolute top-0 left-0 right-0 z-40 p-6 flex justify-between items-start pointer-events-none">
+        <a href="/plans" className="pointer-events-auto group flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-white hover:bg-white/20 transition-all border border-white/10">
+          <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+          <span className="text-sm font-medium">My Plans</span>
+        </a>
 
-          {/* Desktop Header */}
-          <div className="hidden sm:flex items-center gap-4">
-            <a href="/" className="font-semibold text-lg tracking-tight hover:opacity-70 transition-opacity">AItinerary.</a>
-            {user && (
-              <>
-                <span className="text-zinc-300">/</span>
-                <a href="/plans" className="font-medium hover:text-blue-600 transition-colors">My Plans</a>
-              </>
-            )}
-            <span className="text-zinc-300">/</span>
-            <span className="font-medium truncate max-w-[120px] sm:max-w-xs">
-              {(plan?.preferences as any)?.title || plan?.city || "Loading..."}
-            </span>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-3">
-            {isOwner && (
-              <Button
-                onClick={togglePublic}
-                variant="outline"
-                size="sm"
-                disabled={loading || !plan}
-                className={plan?.is_public ? "text-green-600 border-green-200 bg-green-50" : ""}
-              >
-                {plan?.is_public ? "Public" : "Private"}
-              </Button>
-            )}
-            {user ? (
-              <Button onClick={logout} variant="ghost" size="sm">Logout</Button>
-            ) : (
-              <a href={`/login?next=/plan/${planId}`}>
-                <Button variant="primary" size="sm">Login</Button>
-              </a>
-            )}
-          </div>
+        <div className="pointer-events-auto flex items-center gap-3">
+          {user ? (
+            <Button onClick={logout} variant="ghost" size="sm" className="text-white hover:bg-white/10">Logout</Button>
+          ) : (
+            <a href={`/login?next=/plan/${planId}`}><Button variant="secondary" size="sm">Login</Button></a>
+          )}
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-8">
-        {status && <div className="mb-6 p-4 rounded-xl bg-blue-50 border border-blue-100 text-blue-700 text-sm">{status}</div>}
+      <div className="relative">
+        {status && <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full bg-zinc-900/90 text-white backdrop-blur-md shadow-xl text-sm font-medium animate-in fade-in slide-in-from-top-4">{status}</div>}
 
         {loading ? (
-          <div className="space-y-6">
-            <div className="h-40 bg-zinc-100 animate-pulse rounded-2xl" />
-            <div className="h-96 bg-zinc-100 animate-pulse rounded-2xl" />
+          <div className="h-screen w-full flex items-center justify-center bg-zinc-50">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
+              <p className="text-zinc-400 text-sm animate-pulse">Designing your experience...</p>
+            </div>
           </div>
         ) : !plan ? (
-          <div className="text-center py-20">
-            <h3 className="text-xl font-medium">Plan not found</h3>
-            <p className="text-zinc-500 mt-2">The plan you are looking for does not exist or you don't have permission to view it.</p>
-            <a href="/plans" className="mt-6 inline-block"><Button>Back to Plans</Button></a>
+          <div className="h-screen flex flex-col items-center justify-center p-6 text-center">
+            <h3 className="text-2xl font-serif mb-2">Plan not found</h3>
+            <p className="text-zinc-500 mb-8 max-w-md">The plan you are looking for does not exist or you don't have permission to view it.</p>
+            <a href="/plans"><Button>Back to Plans</Button></a>
           </div>
         ) : (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Hero Header (Reduced Height) */}
-            <div className="relative mb-6">
-              <div className="h-36 sm:h-48 rounded-2xl bg-zinc-900 overflow-hidden relative shadow-lg">
+          <div className="animate-in fade-in duration-700">
+            {/* Luxury Hero Header */}
+            <div className="relative h-[65vh] min-h-[500px] w-full bg-zinc-900 overflow-hidden">
+              <div className="absolute inset-0">
                 <img
                   src="/paris_hero_minimalist_1769709515570.png"
-                  className="w-full h-full object-cover opacity-60 mix-blend-overlay"
-                  alt=""
+                  className="w-full h-full object-cover opacity-80 scale-105 animate-in zoom-in-105 duration-[2s]"
+                  alt="Paris"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 p-6 w-full">
-                  <div className="flex items-end justify-between">
-                    <div>
-                      <h1 className="text-3xl sm:text-4xl font-bold text-white mb-1 flex items-center gap-3">
-                        {/* Title Editing Logic (Simplified for Mobile) */}
-                        {isEditingTitle ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={newTitle}
-                              onChange={(e) => setNewTitle(e.target.value)}
-                              className="bg-white/10 text-white px-3 py-1 rounded-lg border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/50 text-2xl font-bold w-full min-w-[200px]"
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSaveTitle();
-                                if (e.key === 'Escape') setIsEditingTitle(false);
-                              }}
-                            />
-                            <Button size="sm" onClick={handleSaveTitle} className="bg-white text-zinc-900 hover:bg-zinc-100">Save</Button>
-                          </div>
-                        ) : (
-                          <>
-                            <span
-                              className={isOwner ? "cursor-pointer hover:underline decoration-white/30 decoration-2 underline-offset-4" : ""}
-                              onClick={() => isOwner && setIsEditingTitle(true)}
-                            >
-                              {(plan.preferences as any)?.title || plan.city}
-                            </span>
-                          </>
-                        )}
-                      </h1>
-                      <div className="flex items-center gap-3 text-white/90">
-                        <span className="text-sm font-medium opacity-90">
-                          {new Date(plan.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-                        </span>
-                      </div>
+                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-zinc-900/90" />
+              </div>
+
+              {/* Hero Content Overlay */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 pt-20">
+                <div className="backdrop-blur-md bg-white/5 border border-white/10 p-8 md:p-12 rounded-[2rem] shadow-2xl max-w-xl w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  {/* Metadata Pills */}
+                  <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+                    <div className="bg-black/30 backdrop-blur-lg px-4 py-1.5 rounded-full border border-white/10 text-white/90 text-xs font-semibold uppercase tracking-widest flex items-center gap-2 shadow-sm">
+                      <span>🕒</span>
+                      {formatTimeForDisplay(plan.start_time)} – {formatTimeForDisplay(plan.end_time)}
+                    </div>
+                    <div className="bg-black/30 backdrop-blur-lg px-4 py-1.5 rounded-full border border-white/10 text-white/90 text-xs font-semibold uppercase tracking-widest flex items-center gap-2 shadow-sm">
+                      <span>👤</span>
+                      {plan.people_count ?? 1} {plan.people_count === 1 ? 'Guest' : 'Guests'}
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
 
-            {/* AI-First Primary Actions */}
-            {!readOnly && (
-              <div className="flex flex-col gap-3 mb-8">
-                <Button
-                  onClick={() => setIsCompassOpen(true)}
-                  className="w-full bg-[#1F2937] hover:bg-[#374151] text-white shadow-sm h-12 text-base font-medium"
-                >
-                  Generate with Compass
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowAddPanel(true)}
-                  className="w-full text-zinc-500 hover:text-zinc-900 h-10 text-sm"
-                >
-                  Add activity manually
-                </Button>
-              </div>
-            )}
+                  <h1 className="text-5xl md:text-7xl font-serif text-white mb-6 tracking-tight drop-shadow-sm leading-tight">
+                    {/* Title Editing Logic */}
+                    {isEditingTitle ? (
+                      <input
+                        type="text"
+                        value={newTitle}
+                        onChange={(e) => setNewTitle(e.target.value)}
+                        className="bg-transparent border-b border-white/50 text-center w-full focus:outline-none focus:border-white font-serif placeholder-white/50"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveTitle();
+                          if (e.key === 'Escape') setIsEditingTitle(false);
+                        }}
+                        onBlur={handleSaveTitle}
+                      />
+                    ) : (
+                      <span
+                        onClick={() => isOwner && setIsEditingTitle(true)}
+                        className={isOwner ? "cursor-pointer hover:text-white/80 transition-colors" : ""}
+                      >
+                        {(plan.preferences as any)?.title || plan.city}
+                      </span>
+                    )}
+                  </h1>
 
-            {/* Compact Trip Overview */}
-            <div className="bg-zinc-50 rounded-xl border border-zinc-100 p-4 mb-8 flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <div>
-                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-0.5">Time</div>
-                  <div className="font-semibold text-zinc-900 text-sm">
-                    {formatTimeForDisplay(plan.start_time)} – {formatTimeForDisplay(plan.end_time)}
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="h-px w-8 bg-white/30" />
+                    <p className="text-xl text-white/80 font-light tracking-wide font-sans">
+                      {new Date(plan.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+                    </p>
+                    <span className="h-px w-8 bg-white/30" />
                   </div>
                 </div>
-                <div className="w-px h-8 bg-zinc-200/60" />
-                <div>
-                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-0.5">People</div>
-                  <div className="font-semibold text-zinc-900 text-sm">{plan.people_count ?? 1}</div>
-                </div>
               </div>
+
+              {/* Privacy Toggle (Bottom Right of Hero) */}
               {isOwner && (
-                <button
-                  onClick={handleEditTimeWindow}
-                  className="text-xs font-medium text-zinc-500 hover:text-blue-600 px-2 py-1 hover:bg-zinc-100 rounded-md transition-colors"
-                >
-                  Adjust
-                </button>
+                <div className="absolute bottom-8 right-8 z-20">
+                  <button
+                    onClick={togglePublic}
+                    className="group flex items-center gap-3 bg-black/40 backdrop-blur-md border border-white/10 hover:bg-black/60 rounded-full pl-4 pr-1.5 py-1.5 transition-all shadow-lg hover:pr-4"
+                  >
+                    <span className="text-xs font-bold text-white/90 uppercase tracking-widest group-hover:text-white">
+                      {plan.is_public ? "Public" : "Private"}
+                    </span>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 ${plan.is_public ? 'bg-emerald-400 text-black rotate-0' : 'bg-white/10 text-white rotate-0 group-hover:bg-white/20'}`}>
+                      {plan.is_public ? (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                      )}
+                    </div>
+                  </button>
+                </div>
               )}
             </div>
 
-            {/* Settings / Adjust Modal (Inline for now if editing) */}
-            {isEditingTimeWindow && isOwner && (
-              <div className="mb-8 p-4 bg-white border border-blue-100 rounded-xl shadow-sm animate-in slide-in-from-top-2">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Start Time</label>
-                      <input type="time" value={timeWindowForm.start_time} onChange={e => setTimeWindowForm({ ...timeWindowForm, start_time: e.target.value })} className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm" />
+            <div className="max-w-4xl mx-auto px-6 -mt-20 relative z-10 pb-20">
+              <div className="bg-white rounded-[2rem] shadow-xl p-8 md:p-10 border border-zinc-100 min-h-[400px]">
+                <div className="flex items-center justify-between mb-8 pb-6 border-b border-zinc-100/50">
+                  <h2 className="text-2xl font-serif text-zinc-900">Your Itinerary</h2>
+                  {isOwner && (
+                    <button
+                      onClick={handleEditTimeWindow}
+                      className="text-xs font-medium text-zinc-400 hover:text-zinc-900 transition-colors uppercase tracking-wider flex items-center gap-1"
+                    >
+                      Settings
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    </button>
+                  )}
+                </div>
+
+                {/* Settings Panel (Inline) */}
+                {isEditingTimeWindow && isOwner && (
+                  <div className="mb-8 p-6 bg-zinc-50 rounded-2xl animate-in slide-in-from-top-4 border border-zinc-100">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-500 mb-2 uppercase tracking-wide">Start Time</label>
+                        <input type="time" value={timeWindowForm.start_time} onChange={e => setTimeWindowForm({ ...timeWindowForm, start_time: e.target.value })} className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-500 mb-2 uppercase tracking-wide">End Time</label>
+                        <input type="time" value={timeWindowForm.end_time} onChange={e => setTimeWindowForm({ ...timeWindowForm, end_time: e.target.value })} className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-500 mb-2 uppercase tracking-wide">Guests</label>
+                        <input type="number" min="1" value={timeWindowForm.people_count} onChange={e => setTimeWindowForm({ ...timeWindowForm, people_count: e.target.value })} className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all" />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-zinc-500 mb-1">End Time</label>
-                      <input type="time" value={timeWindowForm.end_time} onChange={e => setTimeWindowForm({ ...timeWindowForm, end_time: e.target.value })} className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm" />
+                    <div className="flex gap-3 justify-end mt-6">
+                      <Button size="sm" variant="ghost" onClick={handleCancelTimeWindow} className="hover:bg-zinc-200">Cancel</Button>
+                      <Button size="sm" onClick={handleSaveTimeWindow} className="bg-zinc-900 text-white shadow-lg shadow-zinc-200">Save Changes</Button>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-500 mb-1">Guests</label>
-                    <input type="number" min="1" value={timeWindowForm.people_count} onChange={e => setTimeWindowForm({ ...timeWindowForm, people_count: e.target.value })} className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm" />
-                  </div>
-                  <div className="flex gap-2 justify-end pt-2">
-                    <Button size="sm" variant="ghost" onClick={handleCancelTimeWindow}>Cancel</Button>
-                    <Button size="sm" onClick={handleSaveTimeWindow}>Save Changes</Button>
-                  </div>
-                </div>
-              </div>
-            )}
+                )}
 
-            {/* Simplified Sharing Toggle */}
-            {isOwner && (
-              <div className="mb-10 flex items-center justify-between px-1">
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-zinc-900">Share this plan</span>
-                  <span className="text-xs text-zinc-500">{plan.is_public ? "Publicly visible" : "Private (only you)"}</span>
-                </div>
-                <div
-                  onClick={togglePublic}
-                  className={`w-10 h-6 rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out ${plan.is_public ? 'bg-zinc-900' : 'bg-zinc-200'}`}
-                >
-                  <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${plan.is_public ? 'translate-x-4' : 'translate-x-0'}`} />
-                </div>
-              </div>
-            )}
+                <div className="relative pl-4 space-y-8 min-h-[300px] flex flex-col">
+                  {/* Decorative Timeline Line */}
+                  <div className="absolute left-[38px] top-4 bottom-4 w-px bg-zinc-100 hidden md:block" />
 
-            <div className="space-y-6">
-              {/* Main Content: Itinerary - Single Column Now */}
-              <div className="space-y-6">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
-                    <span className="w-1 h-6 bg-blue-600 rounded-full inline-block"></span>
-                    Itinerary
-                  </h2>
-                </div>
-
-                <div className="relative pl-4 border-l border-zinc-200 ml-2 space-y-8">
                   <ItineraryEditor
                     key={`editor-${editorKey}`}
                     planId={plan.id}
@@ -530,20 +468,23 @@ export default function PlanPage() {
                 </div>
               </div>
             </div>
+
             {/* Debug Section */}
             {isOwner && (
-              <div className="pt-12 border-t border-zinc-200">
-                <button
-                  onClick={() => setDebugOpen(!debugOpen)}
-                  className="text-xs text-zinc-400 hover:text-zinc-600 flex items-center gap-1 font-mono transition-colors"
-                >
-                  {debugOpen ? "[-]" : "[+]"} Developer Debug
-                </button>
-                {debugOpen && (
-                  <pre className="mt-4 p-4 bg-zinc-900 text-zinc-50 rounded-xl text-[10px] overflow-auto max-h-60 font-mono shadow-inner">
-                    {JSON.stringify({ preferences: plan.preferences, itinerary: plan.itinerary }, null, 2)}
-                  </pre>
-                )}
+              <div className="max-w-4xl mx-auto px-6 pb-20">
+                <div className="pt-8 border-t border-zinc-200/50">
+                  <button
+                    onClick={() => setDebugOpen(!debugOpen)}
+                    className="text-[10px] text-zinc-300 hover:text-zinc-600 flex items-center gap-1 font-mono transition-colors uppercase tracking-widest"
+                  >
+                    {debugOpen ? "[-]" : "[+]"} Developer Debug
+                  </button>
+                  {debugOpen && (
+                    <pre className="mt-4 p-4 bg-zinc-900 text-zinc-50 rounded-xl text-[10px] overflow-auto max-h-60 font-mono shadow-inner">
+                      {JSON.stringify({ preferences: plan.preferences, itinerary: plan.itinerary }, null, 2)}
+                    </pre>
+                  )}
+                </div>
               </div>
             )}
           </div>
