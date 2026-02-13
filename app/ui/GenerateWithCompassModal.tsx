@@ -379,6 +379,64 @@ export default function GenerateWithCompassModal({
                                     </div>
                                 </div>
 
+                                {/* Activities */}
+                                <div>
+                                    <label className="block text-sm font-medium text-zinc-700 mb-2">Activities</label>
+                                    <div className="flex flex-wrap gap-2 items-center">
+                                        {availableActivities.map((interest) => (
+                                            <button
+                                                key={interest}
+                                                onClick={() => toggleInterest(interest)}
+                                                className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${interests.includes(interest)
+                                                    ? "bg-blue-100 text-blue-800 border-blue-200"
+                                                    : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300"
+                                                    }`}
+                                            >
+                                                {interest}
+                                            </button>
+                                        ))}
+                                        {/* Custom Chips */}
+                                        {customInterests.map((interest) => (
+                                            <button
+                                                key={interest}
+                                                onClick={() => toggleInterest(interest)}
+                                                className="px-3 py-1.5 rounded-full text-sm border bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1"
+                                            >
+                                                {interest}
+                                                <span className="text-blue-400 hover:text-blue-600">×</span>
+                                            </button>
+                                        ))}
+                                        {/* Other Toggle */}
+                                        <button
+                                            onClick={() => setShowOtherInterest(!showOtherInterest)}
+                                            className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${showOtherInterest
+                                                ? "bg-zinc-900 text-white border-zinc-900"
+                                                : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300"
+                                                }`}
+                                        >
+                                            Other
+                                        </button>
+                                        {/* Other Input */}
+                                        {showOtherInterest && (
+                                            <input
+                                                autoFocus
+                                                type="text"
+                                                value={otherInterest}
+                                                onChange={(e) => setOtherInterest(e.target.value)}
+                                                onBlur={addCustomInterest}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        addCustomInterest();
+                                                    }
+                                                }}
+                                                placeholder="Type an activity..."
+                                                className="px-3 py-1.5 rounded-lg border border-zinc-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 animate-in fade-in slide-in-from-left-2 w-48"
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+
 
                                 {/* Meals */}
                                 <div>
@@ -437,8 +495,8 @@ export default function GenerateWithCompassModal({
                                                                         ...(c !== "Other" ? { cuisine: c } : {})
                                                                     })}
                                                                     className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${(meal.cuisine === c) || (c === "Other" && !cuisineOptions.includes(meal.cuisine))
-                                                                            ? "bg-white text-zinc-900 border-zinc-300 shadow-sm ring-1 ring-zinc-200"
-                                                                            : "bg-transparent text-zinc-500 border-transparent hover:bg-white hover:border-zinc-200"
+                                                                        ? "bg-white text-zinc-900 border-zinc-300 shadow-sm ring-1 ring-zinc-200"
+                                                                        : "bg-transparent text-zinc-500 border-transparent hover:bg-white hover:border-zinc-200"
                                                                         }`}
                                                                 >
                                                                     {c}
@@ -469,8 +527,8 @@ export default function GenerateWithCompassModal({
                                                                         key={b}
                                                                         onClick={() => updateMeal(meal.type, { budget: b as any })}
                                                                         className={`flex-1 py-1 rounded-lg text-xs border transition-colors ${meal.budget === b
-                                                                                ? "bg-white text-zinc-900 border-zinc-300 shadow-sm ring-1 ring-zinc-200"
-                                                                                : "bg-transparent text-zinc-500 border-zinc-200 hover:bg-white"
+                                                                            ? "bg-white text-zinc-900 border-zinc-300 shadow-sm ring-1 ring-zinc-200"
+                                                                            : "bg-transparent text-zinc-500 border-zinc-200 hover:bg-white"
                                                                             }`}
                                                                     >
                                                                         {b}
