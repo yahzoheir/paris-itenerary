@@ -195,13 +195,19 @@ async function fetchCandidates(
         queries.push(`hidden gems in ${baseLocation}`);
     }
 
-    if (input.includeFood) {
-        if (input.cuisines && input.cuisines.length > 0) {
-            input.cuisines.forEach(c => queries.push(`best ${c} restaurants in ${baseLocation}`));
-        } else {
-            queries.push(`top rated restaurants in ${baseLocation}`);
-            queries.push(`authentic parisian cafes in ${baseLocation}`);
-        }
+    if (input.meals && input.meals.length > 0) {
+        input.meals.forEach(meal => {
+            const cuisine = meal.cuisine === "Any" ? "" : `${meal.cuisine} `;
+            // e.g. "best Italian restaurants for Lunch in Paris, France"
+            // or "best restaurants for Breakfast in Paris, France"
+            const query = `best ${cuisine}restaurants for ${meal.type} in ${baseLocation}`;
+            queries.push(query);
+
+            // Add a backup query for variety if cuisine is specific
+            if (cuisine) {
+                queries.push(`top rated ${cuisine}places to eat in ${baseLocation}`);
+            }
+        });
     }
 
     if (input.mustInclude) {
@@ -342,6 +348,8 @@ async function callOpenAI(
     6. MANDATORY: You MUST include items marked "is_locked_pick": true. 
        - If a locked item exists for a category (e.g. Dinner), you MUST use it.
        - These are venues specifically agreed upon in the chat.
+    7. MEALS: If "preferences.meals" are present, you MUST select a suitable candidate for EACH requested meal type (e.g. Lunch, Dinner).
+       - Look at the candidate tags/types to ensure it matches.
 
     OUTPUT FORMAT (Strict JSON):
     {

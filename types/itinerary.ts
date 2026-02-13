@@ -26,12 +26,18 @@ export type ItineraryItem = {
   };
 };
 
+export type Meal = {
+  type: "Breakfast" | "Brunch" | "Lunch" | "Coffee / Snack" | "Dinner";
+  cuisine: "Any" | "Italian" | "French" | "Japanese" | "Vietnamese" | "Middle Eastern" | "Vegetarian" | "Other" | string;
+  budget?: "€" | "€€" | "€€€";
+  notes?: string;
+};
+
 export type GenerateInput = {
   budget?: "€" | "€€" | "€€€";
   activityTypes?: string[];
-  walkingTolerance?: "Low" | "Medium" | "High";
-  includeFood?: boolean;
-  cuisines?: string[];
+  // walkingTolerance removed
+  meals?: Meal[]; // Replaces includeFood + cuisines
   mustInclude?: string;
   avoid?: string;
   chatPrompt?: string;

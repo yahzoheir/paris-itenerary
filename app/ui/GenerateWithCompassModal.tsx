@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/app/ui/Button";
-import { ItineraryItem, GenerateInput } from "@/types/itinerary";
+import { ItineraryItem, GenerateInput, Meal } from "@/types/itinerary";
 import { generateCompassItinerary, chatCompass } from "@/app/plan/[id]/compass/actions";
 
 interface GenerateWithCompassModalProps {
@@ -33,16 +33,14 @@ export default function GenerateWithCompassModal({
 
     // Form State
     const [budget, setBudget] = useState<"€" | "€€" | "€€€" | null>(null);
-    const [walkingTolerance, setWalkingTolerance] = useState<"Low" | "Medium" | "High" | null>(null);
-    const [includeFood, setIncludeFood] = useState(false);
+    // Walking tolerance removed
+
+    // Meals State
+    const [meals, setMeals] = useState<Meal[]>([]);
 
     const [interests, setInterests] = useState<string[]>([]);
     const [otherInterest, setOtherInterest] = useState("");
     const [showOtherInterest, setShowOtherInterest] = useState(false);
-
-    const [cuisines, setCuisines] = useState<string[]>([]);
-    const [otherCuisine, setOtherCuisine] = useState("");
-    const [showOtherCuisine, setShowOtherCuisine] = useState(false);
 
     const [mustInclude, setMustInclude] = useState("");
     const [avoid, setAvoid] = useState("");
@@ -64,10 +62,19 @@ export default function GenerateWithCompassModal({
         );
     };
 
-    const toggleCuisine = (cuisine: string) => {
-        setCuisines((prev) =>
-            prev.includes(cuisine) ? prev.filter((c) => c !== cuisine) : [...prev, cuisine]
-        );
+    const toggleMealType = (type: Meal["type"]) => {
+        setMeals(prev => {
+            const exists = prev.find(m => m.type === type);
+            if (exists) {
+                return prev.filter(m => m.type !== type);
+            } else {
+                return [...prev, { type, cuisine: "Any" }];
+            }
+        });
+    };
+
+    const updateMeal = (type: Meal["type"], updates: Partial<Meal>) => {
+        setMeals(prev => prev.map(m => m.type === type ? { ...m, ...updates } : m));
     };
 
     const addCustomInterest = () => {
@@ -77,12 +84,7 @@ export default function GenerateWithCompassModal({
         }
     };
 
-    const addCustomCuisine = () => {
-        if (otherCuisine.trim()) {
-            setCuisines(prev => [...prev, otherCuisine.trim()]);
-            setOtherCuisine("");
-        }
-    };
+
 
     const handleSendMessage = async () => {
         if (!chatInput.trim() || isChatLoading) return;
@@ -121,10 +123,9 @@ export default function GenerateWithCompassModal({
 
         const input: GenerateInput = {
             budget: budget || undefined,
-            walkingTolerance: walkingTolerance || undefined,
-            includeFood,
+            // walkingTolerance removed
+            meals: meals.length > 0 ? meals : undefined,
             activityTypes: interests.length > 0 ? interests : undefined,
-            cuisines: includeFood && cuisines.length > 0 ? cuisines : undefined,
             mustInclude: mustInclude || undefined,
             avoid: avoid || undefined,
             workAroundExisting,
@@ -163,10 +164,11 @@ export default function GenerateWithCompassModal({
     const formatTime = (time: string | null) => (time ? time.substring(0, 5) : "—");
 
     const availableActivities = ["Museums", "Landmarks", "Shopping", "Cafés", "Parks", "Scenic views", "Hidden gems", "Nightlife"];
-    const availableCuisines = ["French", "Italian", "Japanese", "Vietnamese", "Middle Eastern", "Vegetarian"];
+
+    const mealTypes: Meal["type"][] = ["Breakfast", "Brunch", "Lunch", "Coffee / Snack", "Dinner"];
+    const cuisineOptions = ["Any", "Italian", "French", "Japanese", "Vietnamese", "Middle Eastern", "Vegetarian", "Other"];
 
     const customInterests = interests.filter(i => !availableActivities.includes(i));
-    const customCuisines = cuisines.filter(c => !availableCuisines.includes(c));
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -377,150 +379,120 @@ export default function GenerateWithCompassModal({
                                     </div>
                                 </div>
 
-                                {/* Walking Tolerance */}
+
+                                {/* Meals */}
                                 <div>
-                                    <label className="block text-sm font-medium text-zinc-700 mb-2">Walking Tolerance</label>
-                                    <div className="flex gap-2">
-                                        {["Low", "Medium", "High"].map((level) => (
-                                            <button
-                                                key={level}
-                                                onClick={() => setWalkingTolerance(level as any)}
-                                                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${walkingTolerance === level
-                                                    ? "bg-zinc-900 text-white border-zinc-900"
-                                                    : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300"
-                                                    }`}
-                                            >
-                                                {level}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Activities */}
-                                <div>
-                                    <label className="block text-sm font-medium text-zinc-700 mb-2">Activities</label>
-                                    <div className="flex flex-wrap gap-2 items-center">
-                                        {availableActivities.map((interest) => (
-                                            <button
-                                                key={interest}
-                                                onClick={() => toggleInterest(interest)}
-                                                className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${interests.includes(interest)
-                                                    ? "bg-blue-100 text-blue-800 border-blue-200"
-                                                    : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300"
-                                                    }`}
-                                            >
-                                                {interest}
-                                            </button>
-                                        ))}
-                                        {/* Custom Chips */}
-                                        {customInterests.map((interest) => (
-                                            <button
-                                                key={interest}
-                                                onClick={() => toggleInterest(interest)}
-                                                className="px-3 py-1.5 rounded-full text-sm border bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1"
-                                            >
-                                                {interest}
-                                                <span className="text-blue-400 hover:text-blue-600">×</span>
-                                            </button>
-                                        ))}
-                                        {/* Other Toggle */}
-                                        <button
-                                            onClick={() => setShowOtherInterest(!showOtherInterest)}
-                                            className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${showOtherInterest
-                                                ? "bg-zinc-900 text-white border-zinc-900"
-                                                : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300"
-                                                }`}
-                                        >
-                                            Other
-                                        </button>
-                                        {/* Other Input */}
-                                        {showOtherInterest && (
-                                            <input
-                                                autoFocus
-                                                type="text"
-                                                value={otherInterest}
-                                                onChange={(e) => setOtherInterest(e.target.value)}
-                                                onBlur={addCustomInterest}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        e.preventDefault();
-                                                        addCustomInterest();
-                                                    }
-                                                }}
-                                                placeholder="Type an activity..."
-                                                className="px-3 py-1.5 rounded-lg border border-zinc-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 animate-in fade-in slide-in-from-left-2 w-48"
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Food */}
-                                <div className="p-4 border border-zinc-200 rounded-xl space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-sm font-medium text-zinc-900">Include food recommendations?</label>
-                                        <button
-                                            onClick={() => setIncludeFood(!includeFood)}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${includeFood ? 'bg-zinc-900' : 'bg-zinc-200'}`}
-                                        >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${includeFood ? 'translate-x-6' : 'translate-x-1'}`} />
-                                        </button>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div>
+                                            <h3 className="font-semibold text-zinc-900">Meals</h3>
+                                            <p className="text-xs text-zinc-500">Add meal stops to your itinerary. Select one or more.</p>
+                                        </div>
+                                        <span className="text-xs text-zinc-400 bg-zinc-100 px-2 py-1 rounded-full">Optional</span>
                                     </div>
 
-                                    {includeFood && (
-                                        <div className="animate-in slide-in-from-top-2">
-                                            <label className="block text-xs font-medium text-zinc-500 mb-2">Cuisines</label>
-                                            <div className="flex flex-wrap gap-2 items-center">
-                                                {availableCuisines.map((cuisine) => (
-                                                    <button
-                                                        key={cuisine}
-                                                        onClick={() => toggleCuisine(cuisine)}
-                                                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${cuisines.includes(cuisine)
-                                                            ? "bg-zinc-100 text-zinc-900 border-zinc-300"
-                                                            : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
-                                                            }`}
-                                                    >
-                                                        {cuisine}
-                                                    </button>
-                                                ))}
-                                                {/* Custom Cuisines */}
-                                                {customCuisines.map((cuisine) => (
-                                                    <button
-                                                        key={cuisine}
-                                                        onClick={() => toggleCuisine(cuisine)}
-                                                        className="px-3 py-1.5 rounded-full text-xs font-medium border bg-zinc-100 text-zinc-900 border-zinc-300 flex items-center gap-1"
-                                                    >
-                                                        {cuisine}
-                                                        <span className="text-zinc-400 hover:text-zinc-600">×</span>
-                                                    </button>
-                                                ))}
-
+                                    {/* Meal Type Chips */}
+                                    <div className="flex flex-wrap gap-2 mb-4">
+                                        {mealTypes.map((type) => {
+                                            const isSelected = meals.some(m => m.type === type);
+                                            return (
                                                 <button
-                                                    onClick={() => setShowOtherCuisine(!showOtherCuisine)}
-                                                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${showOtherCuisine
+                                                    key={type}
+                                                    onClick={() => toggleMealType(type)}
+                                                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${isSelected
                                                         ? "bg-zinc-900 text-white border-zinc-900"
-                                                        : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300"
+                                                        : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300"
                                                         }`}
                                                 >
-                                                    Other
+                                                    {type}
                                                 </button>
-                                                {showOtherCuisine && (
-                                                    <input
-                                                        autoFocus
-                                                        type="text"
-                                                        value={otherCuisine}
-                                                        onChange={(e) => setOtherCuisine(e.target.value)}
-                                                        onBlur={addCustomCuisine}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                addCustomCuisine();
-                                                            }
-                                                        }}
-                                                        placeholder="Type a cuisine..."
-                                                        className="px-3 py-1.5 rounded-lg border border-zinc-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 animate-in fade-in slide-in-from-left-2 w-32"
-                                                    />
-                                                )}
-                                            </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Meal Cards */}
+                                    {meals.length > 0 && (
+                                        <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                                            {meals.map((meal) => (
+                                                <div key={meal.type} className="p-4 border border-zinc-200 rounded-xl bg-zinc-50/50 space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <h4 className="text-sm font-medium text-zinc-900">{meal.type}</h4>
+                                                        <button
+                                                            onClick={() => toggleMealType(meal.type)}
+                                                            className="text-xs text-zinc-400 hover:text-red-500"
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Cuisine */}
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-zinc-500 mb-1.5">Cuisine</label>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {cuisineOptions.map((c) => (
+                                                                <button
+                                                                    key={c}
+                                                                    onClick={() => updateMeal(meal.type, {
+                                                                        cuisine: c,
+                                                                        // Reset custom cuisine if switching back to preset
+                                                                        ...(c !== "Other" ? { cuisine: c } : {})
+                                                                    })}
+                                                                    className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${(meal.cuisine === c) || (c === "Other" && !cuisineOptions.includes(meal.cuisine))
+                                                                            ? "bg-white text-zinc-900 border-zinc-300 shadow-sm ring-1 ring-zinc-200"
+                                                                            : "bg-transparent text-zinc-500 border-transparent hover:bg-white hover:border-zinc-200"
+                                                                        }`}
+                                                                >
+                                                                    {c}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                        {(!cuisineOptions.includes(meal.cuisine) || meal.cuisine === "Other") && (
+                                                            <div className="mt-2 animate-in fade-in slide-in-from-left-1">
+                                                                <input
+                                                                    type="text"
+                                                                    value={cuisineOptions.includes(meal.cuisine) ? "" : meal.cuisine}
+                                                                    onChange={(e) => updateMeal(meal.type, { cuisine: e.target.value })}
+                                                                    placeholder="Type cuisine (e.g. Korean BBQ)..."
+                                                                    className="w-full px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                                    autoFocus
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        {/* Budget */}
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-zinc-500 mb-1.5">Budget</label>
+                                                            <div className="flex gap-1">
+                                                                {["€", "€€", "€€€"].map((b) => (
+                                                                    <button
+                                                                        key={b}
+                                                                        onClick={() => updateMeal(meal.type, { budget: b as any })}
+                                                                        className={`flex-1 py-1 rounded-lg text-xs border transition-colors ${meal.budget === b
+                                                                                ? "bg-white text-zinc-900 border-zinc-300 shadow-sm ring-1 ring-zinc-200"
+                                                                                : "bg-transparent text-zinc-500 border-zinc-200 hover:bg-white"
+                                                                            }`}
+                                                                    >
+                                                                        {b}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Notes */}
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-zinc-500 mb-1.5">Notes</label>
+                                                            <input
+                                                                type="text"
+                                                                value={meal.notes || ""}
+                                                                onChange={(e) => updateMeal(meal.type, { notes: e.target.value })}
+                                                                placeholder="pizza, romantic..."
+                                                                className="w-full px-3 py-1 bg-white border border-zinc-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                 </div>
