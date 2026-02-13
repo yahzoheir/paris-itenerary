@@ -230,8 +230,10 @@ async function fetchCandidates(
     // ------------------------------------------------------
     // 2. Fetch Generic Candidates (Branch A)
     // ------------------------------------------------------
-    const safeQueries = queries.slice(0, 3);
-    console.log(`[Compass] Fetching candidates for generic queries: ${JSON.stringify(safeQueries)}`);
+    // Use all queries to ensure we cover every requested meal/activity.
+    // Previously limited to 3, which caused dropped meals.
+    const safeQueries = queries;
+    console.log(`[Compass] Fetching candidates for generic queries (Count: ${safeQueries.length}): ${JSON.stringify(safeQueries)}`);
 
     const fetchForQuery = async (query: string, isExplicit: boolean = false) => {
         const url = `https://places.googleapis.com/v1/places:searchText`;
@@ -325,12 +327,13 @@ function constructFormSystemPrompt(input: GenerateInput, planContext: any): stri
 
     // Meal constraints
     if (input.meals && input.meals.length > 0) {
-        requirements += `\n    - MEALS: You MUST include a stop for EACH requested meal:`;
+        requirements += `\n    - MEALS: You MUST include a stop for EACH requested meal. NO EXCEPTIONS.`;
         input.meals.forEach(m => {
-            const cuisineReq = m.cuisine !== "Any" ? `matching cuisine "${m.cuisine}"` : "any cuisine";
-            requirements += `\n      * [${m.type}]: Must be a valid place for ${m.type}, ${cuisineReq}.`;
-            if (m.notes) requirements += ` Note context: "${m.notes}".`;
+            const cuisineReq = m.cuisine !== "Any" ? `specifically for **${m.cuisine}** cuisine` : "any good cuisine";
+            requirements += `\n      * [${m.type}]: REQUIRED. Must be a valid restaurant or cafe for ${m.type}, ${cuisineReq}.`;
+            if (m.notes) requirements += ` Context: "${m.notes}".`;
         });
+        requirements += `\n    - IF A CUISINE IS SPECIFIED, YOU MUST PICK A PLACE THAT MATCHES IT. DO NOT PICK A GENERIC PLACE.`;
     }
 
     return `You are a strict Selection Engine for a Paris itinerary builder.
@@ -361,13 +364,15 @@ function validateItinerary(items: ItineraryItem[], input: GenerateInput): { vali
     const errors: string[] = [];
     const usedItemIds = new Set<string>();
 
-    const findMatch = (predicate: (item: ItineraryItem) => boolean): boolean => {
+    console.log("[Validation] Selected Meals:", JSON.stringify(input.meals));
+
+    const findMatch = (predicate: (item: ItineraryItem) => boolean): ItineraryItem | undefined => {
         const match = items.find(i => !usedItemIds.has(i.id) && predicate(i));
         if (match) {
             usedItemIds.add(match.id);
-            return true;
+            return match;
         }
-        return false;
+        return undefined;
     };
 
     // 1. Validate Activities
@@ -375,7 +380,6 @@ function validateItinerary(items: ItineraryItem[], input: GenerateInput): { vali
         for (const type of input.activityTypes) {
             const found = findMatch(item => {
                 const tags = (item.metadata?.types || []).join(" ").toLowerCase();
-                // Naive mapping: 'Museums' -> 'museum'
                 const keyword = type.toLowerCase().replace(/s$/, "");
                 return tags.includes(keyword) || item.title.toLowerCase().includes(keyword) || (item.notes || "").toLowerCase().includes(keyword);
             });
@@ -389,31 +393,50 @@ function validateItinerary(items: ItineraryItem[], input: GenerateInput): { vali
     // 2. Validate Meals
     if (input.meals) {
         for (const meal of input.meals) {
-            const found = findMatch(item => {
+            const matchedItem = findMatch(item => {
                 const tags = (item.metadata?.types || []).join(" ").toLowerCase();
-                const isFoodPlace = tags.includes("food") || tags.includes("restaurant") || tags.includes("cafe") || tags.includes("bakery") || tags.includes("bar");
+                const title = item.title.toLowerCase();
 
-                // If not explicitly tagged as food, check if notes imply it (fallback)
-                if (!isFoodPlace && !(item.notes || "").toLowerCase().includes(meal.type.toLowerCase())) return false;
+                // 1. Must be a food place
+                const isFoodPlace = tags.includes("food") || tags.includes("restaurant") || tags.includes("cafe") || tags.includes("bakery") || tags.includes("bar") || tags.includes("meal_takeaway");
+                if (!isFoodPlace) {
+                    // Strict check: if it's not tagged as food, we reject it for a meal slot unless explicit note
+                    // User requirement 3: "A meal stop must be identifiable as... category: restaurant OR café"
+                    // We will trust 'types'.
+                    return false;
+                }
 
-                // Cuisine check
+                // 2. Cuisine Check
                 if (meal.cuisine && meal.cuisine !== "Any") {
-                    const cuisineKeyword = (meal.cuisine === "Other" ? "" : meal.cuisine).toLowerCase();
-                    if (cuisineKeyword) {
-                        const content = (tags + " " + item.title + " " + (item.notes || "")).toLowerCase();
-                        if (!content.includes(cuisineKeyword)) return false;
+                    const reqCuisine = (meal.cuisine === "Other" ? "" : meal.cuisine).toLowerCase();
+                    if (reqCuisine) {
+                        // The item MUST have this cuisine in tags or title
+                        const content = (tags + " " + title).toLowerCase();
+                        if (!content.includes(reqCuisine)) {
+                            // console.log(`[Validation] Rejecting ${item.title} for ${meal.cuisine} (TAGS: ${tags})`);
+                            return false;
+                        }
                     }
                 }
+
+                // 3. Type Check (Breakfast/Dinner/etc) - loosely checked by presence in list
+                // We assume if it matches cuisine and is a restaurant, it's valid for the slot.
+
                 return true;
             });
 
-            if (!found) {
-                errors.push(`Missing meal: ${meal.type} (${meal.cuisine})`);
+            if (!matchedItem) {
+                console.warn(`[Validation] Failed to find match for meal: ${meal.type} (${meal.cuisine})`);
+                errors.push(`Missing valid stop for: ${meal.type} (${meal.cuisine}). Must be a restaurant/cafe matching the cuisine.`);
+            } else {
+                console.log(`[Validation] Matched ${meal.type} -> ${matchedItem.title}`);
             }
         }
     }
 
-    return { valid: errors.length === 0, errors };
+    const isValid = errors.length === 0;
+    console.log(`[Validation] Result: ${isValid ? "PASS" : "FAIL"}`, errors);
+    return { valid: isValid, errors };
 }
 
 // ------------------------------------------------------------------
@@ -629,6 +652,17 @@ export async function generateCompassItinerary(planId: string, input: GenerateIn
                 // Returning partial as before.
                 lastErrors = validation.errors;
             }
+        }
+
+        // 4. Strict Failure if still invalid
+        if (lastErrors.length > 0) {
+            console.error("[Compass] Failed strict validation after max attempts:", lastErrors);
+            return {
+                error: {
+                    type: "VALIDATION_ERROR",
+                    message: "Unable to generate a valid itinerary meeting all strict requirements. Please try loosening constraints or specific requests."
+                }
+            };
         }
     }
 
