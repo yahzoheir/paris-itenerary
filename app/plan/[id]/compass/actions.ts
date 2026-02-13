@@ -63,7 +63,6 @@ const PARIS_DEFAULTS = [
         rating: 4.7,
         userRatingCount: 140000,
         types: ["museum", "tourist_attraction"]
-
     }
 ];
 
@@ -313,6 +312,111 @@ async function fetchCandidates(
 }
 
 // ------------------------------------------------------------------
+// 1.5 FORM PROMPT BUILDER & VALIDATION (NEW)
+// ------------------------------------------------------------------
+
+function constructFormSystemPrompt(input: GenerateInput, planContext: any): string {
+    let requirements = "";
+
+    // Activity constraints
+    if (input.activityTypes && input.activityTypes.length > 0) {
+        requirements += `\n    - ACTIVITIES: You MUST include at least one item for EACH of these categories: ${input.activityTypes.join(", ")}.`;
+    }
+
+    // Meal constraints
+    if (input.meals && input.meals.length > 0) {
+        requirements += `\n    - MEALS: You MUST include a stop for EACH requested meal:`;
+        input.meals.forEach(m => {
+            const cuisineReq = m.cuisine !== "Any" ? `matching cuisine "${m.cuisine}"` : "any cuisine";
+            requirements += `\n      * [${m.type}]: Must be a valid place for ${m.type}, ${cuisineReq}.`;
+            if (m.notes) requirements += ` Note context: "${m.notes}".`;
+        });
+    }
+
+    return `You are a strict Selection Engine for a Paris itinerary builder.
+    
+    TASK:
+    Select the best items from the provided "CANDIDATES" list to build a realistic itinerary.
+    
+    RULES:
+    1. You MUST ONLY select items from the "CANDIDATES" list.
+    2. You MUST reference selected items by their exact "id".
+    3. DO NOT invent, hallucinate, or modify Place IDs or Names.
+    4. Start Time: ${planContext.startTime}. End Time: ${planContext.endTime}.
+    5. Accommodate "Existing Items" (fix them in place) if present.
+    6. MANDATORY: You MUST include items marked "is_locked_pick": true.
+       - If a locked item exists for a category (e.g. Dinner), you MUST use it.
+    ${requirements}
+
+    OUTPUT FORMAT (Strict JSON):
+    {
+       "items": [
+          { "placeId": "EXACT_ID_FROM_CANDIDATES", "durationMin": 90, "notes": "Brief reason for selection", "source": "chat_locked" | "ai_suggested" }
+       ]
+    }
+    `;
+}
+
+function validateItinerary(items: ItineraryItem[], input: GenerateInput): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+    const usedItemIds = new Set<string>();
+
+    const findMatch = (predicate: (item: ItineraryItem) => boolean): boolean => {
+        const match = items.find(i => !usedItemIds.has(i.id) && predicate(i));
+        if (match) {
+            usedItemIds.add(match.id);
+            return true;
+        }
+        return false;
+    };
+
+    // 1. Validate Activities
+    if (input.activityTypes) {
+        for (const type of input.activityTypes) {
+            const found = findMatch(item => {
+                const tags = (item.metadata?.types || []).join(" ").toLowerCase();
+                // Naive mapping: 'Museums' -> 'museum'
+                const keyword = type.toLowerCase().replace(/s$/, "");
+                return tags.includes(keyword) || item.title.toLowerCase().includes(keyword) || (item.notes || "").toLowerCase().includes(keyword);
+            });
+
+            if (!found) {
+                errors.push(`Missing activity category: ${type}`);
+            }
+        }
+    }
+
+    // 2. Validate Meals
+    if (input.meals) {
+        for (const meal of input.meals) {
+            const found = findMatch(item => {
+                const tags = (item.metadata?.types || []).join(" ").toLowerCase();
+                const isFoodPlace = tags.includes("food") || tags.includes("restaurant") || tags.includes("cafe") || tags.includes("bakery") || tags.includes("bar");
+
+                // If not explicitly tagged as food, check if notes imply it (fallback)
+                if (!isFoodPlace && !(item.notes || "").toLowerCase().includes(meal.type.toLowerCase())) return false;
+
+                // Cuisine check
+                if (meal.cuisine && meal.cuisine !== "Any") {
+                    const cuisineKeyword = (meal.cuisine === "Other" ? "" : meal.cuisine).toLowerCase();
+                    if (cuisineKeyword) {
+                        const content = (tags + " " + item.title + " " + (item.notes || "")).toLowerCase();
+                        if (!content.includes(cuisineKeyword)) return false;
+                    }
+                }
+                return true;
+            });
+
+            if (!found) {
+                errors.push(`Missing meal: ${meal.type} (${meal.cuisine})`);
+            }
+        }
+    }
+
+    return { valid: errors.length === 0, errors };
+}
+
+// ------------------------------------------------------------------
 // 2. CONTROLLED AI SELECTION
 // ------------------------------------------------------------------
 
@@ -320,7 +424,8 @@ async function callOpenAI(
     candidates: any[],
     planContext: any,
     input: GenerateInput,
-    existingItems: ItineraryItem[]
+    existingItems: ItineraryItem[],
+    overrideSystemPrompt?: string
 ): Promise<{ items: ItineraryItem[] } | { error: any }> {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
@@ -334,7 +439,7 @@ async function callOpenAI(
         is_locked_pick: c.is_locked_pick // Pass the tag to LLM context
     }));
 
-    const systemPrompt = `You are a strict Selection Engine for a Paris itinerary builder.
+    const defaultSystemPrompt = `You are a strict Selection Engine for a Paris itinerary builder.
     
     TASK:
     Select the best items from the provided "CANDIDATES" list to build a realistic itinerary.
@@ -358,6 +463,8 @@ async function callOpenAI(
        ]
     }
     `;
+
+    const systemPrompt = overrideSystemPrompt || defaultSystemPrompt;
 
     const userPrompt = JSON.stringify({
         request: {
@@ -430,7 +537,8 @@ async function callOpenAI(
                     // Metadata for debugging
                     metadata: {
                         source: item.source || (candidate.is_locked_pick ? "chat_locked" : "ai_suggested"),
-                        requested_name: candidate.displayName.text
+                        requested_name: candidate.displayName.text,
+                        types: candidate.types
                     }
                 });
             }
@@ -474,18 +582,55 @@ export async function generateCompassItinerary(planId: string, input: GenerateIn
         candidates = PARIS_DEFAULTS;
     }
 
-    // 3. AI Selection & Hydration
-    const result = await callOpenAI(
-        candidates,
-        {
-            date: plan.date,
-            startTime: plan.start_time,
-            endTime: plan.end_time,
-            people_count: plan.people_count
-        },
-        input,
-        input.workAroundExisting && plan.itinerary?.items ? plan.itinerary.items : [] // existing items
-    );
+    // 3. AI Selection & Hydration (Branching Logic)
+    const planContext = {
+        date: plan.date,
+        startTime: plan.start_time,
+        endTime: plan.end_time,
+        people_count: plan.people_count
+    };
+    const existingItems = input.workAroundExisting && plan.itinerary?.items ? plan.itinerary.items : [];
+
+    let result: { items: ItineraryItem[] } | { error: any };
+
+    // A. CHAT MODE (Loose, Conversational)
+    if (input.chatPrompt) {
+        result = await callOpenAI(candidates, planContext, input, existingItems);
+    }
+    // B. FORM MODE (Strict, Validated)
+    else {
+        let attempts = 0;
+        const maxAttempts = 3;
+        let basePrompt = constructFormSystemPrompt(input, planContext);
+        let lastErrors: string[] = [];
+
+        // Initial "empty" result to satisfy TS if loop doesn't run (unlikely) or fails
+        result = { items: [] };
+
+        while (attempts < maxAttempts) {
+            attempts++;
+            let currentPrompt = basePrompt;
+            if (lastErrors.length > 0) {
+                currentPrompt += `\n\nCRITICAL: Your previous attempt failed strict validation:\n- ${lastErrors.join("\n- ")}\nYou MUST fix these issues in this attempt.`;
+            }
+
+            console.log(`[Compass] Form Mode Generation Attempt ${attempts}/${maxAttempts}`);
+            result = await callOpenAI(candidates, planContext, input, existingItems, currentPrompt);
+
+            if ('error' in result) break; // Stop on API error
+
+            const validation = validateItinerary(result.items, input);
+            if (validation.valid) {
+                console.log("[Compass] Validation Passed.");
+                break;
+            } else {
+                console.warn(`[Compass] Validation Failed (Attempt ${attempts}):`, validation.errors);
+                // On last attempt, force error or return partial?
+                // Returning partial as before.
+                lastErrors = validation.errors;
+            }
+        }
+    }
 
     if ('error' in result) {
         return { error: result.error, usage: rateLimit };

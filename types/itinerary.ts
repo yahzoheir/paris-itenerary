@@ -23,6 +23,7 @@ export type ItineraryItem = {
   metadata?: {
     source?: "chat_locked" | "ai_suggested" | "fallback";
     requested_name?: string;
+    types?: string[];
   };
 };
 
