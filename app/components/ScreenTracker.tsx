@@ -23,6 +23,8 @@ export default function ScreenTracker() {
                 } else if (res.status === 401) {
                     // User not logged in, ignore
                     currentSessionId.current = null;
+
+                    
                 }
             } catch (error) {
                 console.error("Failed to start screen session", error);
