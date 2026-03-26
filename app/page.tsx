@@ -27,6 +27,50 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-[#fafafa] text-zinc-900 overflow-x-hidden">
+      {/* Survey Floating Banner */}
+      <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-8 duration-700 hidden sm:block">
+        <div className="bg-white border border-blue-100 shadow-2xl shadow-blue-900/10 rounded-2xl p-4 flex gap-4 items-start max-w-[320px]">
+          <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0 text-xl border border-blue-100">
+            📝
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-zinc-900">Have a minute?</p>
+            <p className="text-sm text-zinc-600 mt-1 leading-relaxed">
+              Help us improve by taking this quick 2&#8209;minute survey!
+            </p>
+            <a 
+              href="https://docs.google.com/forms/d/e/1FAIpQLSccsDANYTU1qOgKbSdXpK9MtuJ2nBrMluAo16EqRKMpM1pCsQ/viewform?usp=publish-editor"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-full transition-colors shadow-sm"
+            >
+              Take survey
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Survey Banner (slides up from very bottom) */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 p-4 sm:hidden animate-in fade-in slide-in-from-bottom-8 duration-700">
+        <div className="bg-white border border-zinc-200 shadow-2xl rounded-2xl p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">📝</span>
+            <div>
+              <p className="text-sm font-semibold text-zinc-900">Have a minute?</p>
+              <p className="text-xs text-zinc-500">Quick 2-min survey</p>
+            </div>
+          </div>
+          <a 
+            href="https://docs.google.com/forms/d/e/1FAIpQLSccsDANYTU1qOgKbSdXpK9MtuJ2nBrMluAo16EqRKMpM1pCsQ/viewform?usp=publish-editor"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 bg-blue-600 active:bg-blue-700 text-white text-xs font-medium rounded-full whitespace-nowrap"
+          >
+            Take survey
+          </a>
+        </div>
+      </div>
+
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/60 backdrop-blur-md border-b border-zinc-100/50">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
