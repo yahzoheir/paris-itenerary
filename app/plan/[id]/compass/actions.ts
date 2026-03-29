@@ -2,6 +2,7 @@
 
 import { createClient } from "@/app/lib/supabaseServer";
 import { GenerateInput, ItineraryItem } from "@/types/itinerary";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const MAX_DAILY_GENERATIONS = 20;
 
@@ -70,49 +71,22 @@ const PARIS_DEFAULTS = [
 // HELPERS
 // ------------------------------------------------------------------
 
-async function checkRateLimit(supabase: any, userId: string): Promise<{ allowed: boolean; usage: number; limit: number }> {
+async function checkAndIncrementUsage(supabase: SupabaseClient, userId: string): Promise<{ allowed: boolean; usage: number; limit: number }> {
     const today = new Date().toISOString().split("T")[0];
 
-    const { data, error } = await supabase
-        .from("ai_usage_daily")
-        .select("count")
-        .eq("user_id", userId)
-        .eq("day", today)
-        .single();
+    const { data, error } = await supabase.rpc("increment_ai_usage", {
+        p_user_id: userId,
+        p_day: today,
+        p_limit: MAX_DAILY_GENERATIONS,
+    });
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 is Row not found
-        console.error("Rate limit check error:", error);
+    if (error) {
+        console.error("Rate limit RPC error:", error);
+        // Fail open — allow the request if the RPC itself errors
+        return { allowed: true, usage: 0, limit: MAX_DAILY_GENERATIONS };
     }
 
-    const currentCount = data?.count || 0;
-
-    if (currentCount >= MAX_DAILY_GENERATIONS) {
-        return { allowed: false, usage: currentCount, limit: MAX_DAILY_GENERATIONS };
-    }
-
-    return { allowed: true, usage: currentCount, limit: MAX_DAILY_GENERATIONS };
-}
-
-async function incrementUsage(supabase: any, userId: string) {
-    const today = new Date().toISOString().split("T")[0];
-
-    const { data: current } = await supabase
-        .from("ai_usage_daily")
-        .select("count")
-        .eq("user_id", userId)
-        .eq("day", today)
-        .single();
-
-    const newCount = (current?.count || 0) + 1;
-
-    const { error } = await supabase
-        .from("ai_usage_daily")
-        .upsert(
-            { user_id: userId, day: today, count: newCount, updated_at: new Date().toISOString() },
-            { onConflict: "user_id, day" }
-        );
-
-    if (error) console.error("Rate limit increment failed:", error);
+    return data as { allowed: boolean; usage: number; limit: number };
 }
 
 // ------------------------------------------------------------------
@@ -606,8 +580,8 @@ export async function generateCompassItinerary(planId: string, input: GenerateIn
     const { data: plan } = await supabase.from("plans").select("*").eq("id", planId).single();
     if (!plan) return { error: { type: "NOT_FOUND", message: "Plan not found" } };
 
-    // Rate Limit
-    const rateLimit = await checkRateLimit(supabase, user.id);
+    // Rate Limit (atomic check + increment)
+    const rateLimit = await checkAndIncrementUsage(supabase, user.id);
     if (!rateLimit.allowed) {
         return { error: { type: "RATE_LIMIT", message: "Daily limit reached" }, usage: rateLimit };
     }
@@ -687,11 +661,9 @@ export async function generateCompassItinerary(planId: string, input: GenerateIn
         return { error: result.error, usage: rateLimit };
     }
 
-    // 4. Success - Counting
-    await incrementUsage(supabase, user.id);
     return {
         items: result.items,
-        usage: { ...rateLimit, usage: rateLimit.usage + 1 }
+        usage: rateLimit
     };
 }
 

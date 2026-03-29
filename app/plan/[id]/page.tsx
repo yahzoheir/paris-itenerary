@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Image from "next/image"; // Add Next Image if preferred, but using img tag as before to be safe
 import { Playfair_Display } from "next/font/google"; // If I can import here, cool. But standard CSS var is likely better.
 
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabaseClient";
 import ItineraryEditor from "./ItineraryEditor";
 import { saveItineraryItems } from "./actions"; // Import server action
@@ -12,6 +13,10 @@ import type { ItineraryItem } from "@/types/itinerary";
 import GenerateWithCompassModal from "@/app/ui/GenerateWithCompassModal";
 import { Button } from "@/app/ui/Button";
 import { Card, CardHeader, CardBody, Badge } from "@/app/ui/Card";
+
+type PlanPreferences = {
+  title?: string;
+};
 
 type Plan = {
   id: string;
@@ -21,8 +26,8 @@ type Plan = {
   start_time: string | null;
   end_time: string | null;
   people_count: number | null;
-  preferences: any;
-  itinerary: any;
+  preferences: PlanPreferences | null;
+  itinerary: { items: ItineraryItem[] } | null;
   is_public: boolean;
   created_at: string;
 };
@@ -68,7 +73,7 @@ export default function PlanPage() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<{ message: string; type: 'success' | 'error' | 'loading' } | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isEditingTimeWindow, setIsEditingTimeWindow] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -226,6 +231,11 @@ export default function PlanPage() {
       return;
     }
 
+    if (normalizedStartTime && normalizedEndTime && normalizedStartTime >= normalizedEndTime) {
+      setStatus({ message: "Error: End time must be after start time", type: 'error' });
+      return;
+    }
+
     const { error } = await supabase
       .from("plans")
       .update(updateData)
@@ -260,7 +270,7 @@ export default function PlanPage() {
     setStatus({ message: "Updating title...", type: 'loading' });
 
     const updatedPreferences = {
-      ...(plan.preferences as any),
+      ...plan.preferences,
       title: newTitle.trim() || undefined
     };
 
@@ -283,7 +293,7 @@ export default function PlanPage() {
   // Pre-fill title when entering edit mode
   useEffect(() => {
     if (isEditingTitle && plan) {
-      setNewTitle((plan.preferences as any)?.title || plan.city);
+      setNewTitle(plan.preferences?.title || plan.city);
     }
   }, [isEditingTitle, plan]);
 
@@ -384,7 +394,7 @@ export default function PlanPage() {
                         onClick={() => isOwner && setIsEditingTitle(true)}
                         className={isOwner ? "cursor-pointer hover:text-white/80 transition-colors" : ""}
                       >
-                        {(plan.preferences as any)?.title || plan.city}
+                        {plan.preferences?.title || plan.city}
                       </span>
                     )}
                   </h1>

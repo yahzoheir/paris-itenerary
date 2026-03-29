@@ -90,6 +90,22 @@ export default function NewPlanPage() {
 
     // ... (rest of validation and insert)
 
+    // Validate plan name length
+    if (formData.name.trim().length > 100) {
+      setError("Plan name must be under 100 characters");
+      setIsCreating(false);
+      return;
+    }
+
+    // Validate time order
+    const start = formatTimeForDatabase(formData.start_time);
+    const end = formatTimeForDatabase(formData.end_time);
+    if (start && end && start >= end) {
+      setError("End time must be after start time");
+      setIsCreating(false);
+      return;
+    }
+
     // Validate people_count
     if (insertData.people_count !== null && insertData.people_count < 1) {
       setError("People count must be at least 1");
