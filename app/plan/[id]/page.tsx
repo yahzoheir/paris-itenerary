@@ -482,7 +482,13 @@ export default function PlanPage() {
                   </button>
                   {debugOpen && (
                     <pre className="mt-4 p-4 bg-zinc-900 text-zinc-50 rounded-xl text-[10px] overflow-auto max-h-60 font-mono shadow-inner">
-                      {JSON.stringify({ preferences: plan.preferences, itinerary: plan.itinerary }, null, 2)}
+                      {JSON.stringify({
+                        plan_id: plan.id,
+                        start_time: plan.start_time,
+                        end_time: plan.end_time,
+                        people_count: plan.people_count,
+                        itinerary_item_count: plan.itinerary?.items?.length ?? 0,
+                      }, null, 2)}
                     </pre>
                   )}
                 </div>

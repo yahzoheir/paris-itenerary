@@ -27,11 +27,15 @@ const CARD_IMAGES = [
   "/paris_card_metro_1769713535929.png"
 ];
 
+const PAGE_SIZE = 12;
+
 export default function PlansPage() {
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("");
   const [plans, setPlans] = useState<PlanRow[]>([]);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleteTargetLabel, setDeleteTargetLabel] = useState<string>("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -42,7 +46,7 @@ export default function PlansPage() {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
 
-  async function load() {
+  async function load(targetPage = 0) {
     setLoading(true);
     setStatus("");
 
@@ -56,11 +60,14 @@ export default function PlansPage() {
 
     setEmail(user.email ?? null);
 
-    const { data, error } = await supabase
+    const from = targetPage * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    const { data, error, count } = await supabase
       .from("plans")
-      .select("id, city, date, created_at, is_public, start_time, end_time, people_count, preferences")
+      .select("id, city, date, created_at, is_public, start_time, end_time, people_count, preferences", { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(50);
+      .range(from, to);
 
     if (error) {
       setStatus(`Error loading plans: ${error.message}`);
@@ -70,11 +77,13 @@ export default function PlansPage() {
     }
 
     setPlans((data as PlanRow[]) ?? []);
+    setTotalCount(count ?? 0);
+    setPage(targetPage);
     setLoading(false);
   }
 
   useEffect(() => {
-    load();
+    load(0);
   }, []);
 
   async function createBlankPlan() {
@@ -150,14 +159,17 @@ export default function PlansPage() {
       return;
     }
 
-    // Remove plan from UI immediately
-    setPlans((prevPlans) => prevPlans.filter((p) => p.id !== deleteTargetId));
-
     // Close modal
     setDeleteTargetId(null);
     setDeleteTargetLabel("");
     setDeleteError(null);
     setIsDeleting(false);
+
+    // If we deleted the last item on this page, go back one page
+    const newTotal = totalCount - 1;
+    const lastPage = Math.max(0, Math.ceil(newTotal / PAGE_SIZE) - 1);
+    const targetPage = Math.min(page, lastPage);
+    await load(targetPage);
   }
 
   function handleRenameClick(e: React.MouseEvent, plan: PlanRow) {
@@ -370,6 +382,29 @@ export default function PlansPage() {
                 </Card>
               </a>
             ))}
+          </div>
+        {/* Pagination */}
+        {totalCount > PAGE_SIZE && (
+          <div className="flex items-center justify-center gap-4 mt-10">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => load(page - 1)}
+              disabled={page === 0 || loading}
+            >
+              ← Previous
+            </Button>
+            <span className="text-sm text-zinc-500 font-medium">
+              Page {page + 1} of {Math.ceil(totalCount / PAGE_SIZE)}
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => load(page + 1)}
+              disabled={(page + 1) * PAGE_SIZE >= totalCount || loading}
+            >
+              Next →
+            </Button>
           </div>
         )}
       </div>

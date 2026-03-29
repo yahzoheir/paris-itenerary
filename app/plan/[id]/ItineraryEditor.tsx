@@ -57,7 +57,11 @@ type ScheduledBlock =
 
 // Convert "HH:MM" to minutes since midnight
 function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
+  const parts = time.split(":");
+  if (parts.length < 2) return 0;
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
+  if (isNaN(hours) || isNaN(minutes)) return 0;
   return hours * 60 + minutes;
 }
 
