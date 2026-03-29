@@ -279,6 +279,7 @@ export default function PlansPage() {
             ))}
           </div>
         ) : (
+          <>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* 1. Create New Plan Card */}
             <a
@@ -383,6 +384,7 @@ export default function PlansPage() {
               </a>
             ))}
           </div>
+
         {/* Pagination */}
         {totalCount > PAGE_SIZE && (
           <div className="flex items-center justify-center gap-4 mt-10">
@@ -406,6 +408,8 @@ export default function PlansPage() {
               Next →
             </Button>
           </div>
+        )}
+          </>
         )}
       </div>
 
