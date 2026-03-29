@@ -6,6 +6,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const MAX_DAILY_GENERATIONS = 20;
 
+const CITY_COORDINATES: Record<string, { latitude: number; longitude: number }> = {
+    "Paris": { latitude: 48.8566, longitude: 2.3522 },
+};
+
+const DEFAULT_COORDS = { latitude: 48.8566, longitude: 2.3522 };
+
 // ------------------------------------------------------------------
 // CONSTANTS & DEFAULTS
 // ------------------------------------------------------------------
@@ -219,12 +225,12 @@ async function fetchCandidates(
     const fetchForQuery = async (query: string, isExplicit: boolean = false, cuisineTag?: string) => {
         const url = `https://places.googleapis.com/v1/places:searchText`;
 
-        // Strict Paris Bias
+        const coords = CITY_COORDINATES[city] || DEFAULT_COORDS;
         const requestBody = {
             textQuery: query,
             locationBias: {
                 circle: {
-                    center: { latitude: 48.8566, longitude: 2.3522 },
+                    center: coords,
                     radius: 5000.0 // 5km strict center radius
                 }
             },
