@@ -181,36 +181,43 @@ async function fetchCandidates(
     const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
     if (!GOOGLE_API_KEY) throw new Error("Missing GOOGLE_MAPS_API_KEY");
 
-    const queries: string[] = [];
+    type QueryMeta = { query: string; cuisineTag?: string };
+    const queries: QueryMeta[] = [];
 
     // Construct high-quality queries to get a diverse pool
     // Always append "Paris, France" to ensure bias
     const baseLocation = "Paris, France";
 
     if (input.activityTypes && input.activityTypes.length > 0) {
-        input.activityTypes.forEach(t => queries.push(`best ${t} in ${baseLocation}`));
+        input.activityTypes.forEach(t => queries.push({ query: `best ${t} in ${baseLocation}` }));
     } else {
-        queries.push(`must-see attractions in ${baseLocation}`);
-        queries.push(`hidden gems in ${baseLocation}`);
+        queries.push({ query: `must-see attractions in ${baseLocation}` });
+        queries.push({ query: `hidden gems in ${baseLocation}` });
     }
 
     if (input.meals && input.meals.length > 0) {
         input.meals.forEach(meal => {
             const cuisine = meal.cuisine === "Any" ? "" : `${meal.cuisine} `;
-            // e.g. "best Italian restaurants for Lunch in Paris, France"
-            // or "best restaurants for Breakfast in Paris, France"
-            const query = `best ${cuisine}restaurants for ${meal.type} in ${baseLocation}`;
-            queries.push(query);
+            // Tag with the cuisine so candidates can be identified later in validation
+            const cuisineTag = meal.cuisine !== "Any" ? meal.cuisine.toLowerCase() : undefined;
 
-            // Add a backup query for variety if cuisine is specific
+            queries.push({
+                query: `best ${cuisine}restaurants for ${meal.type} in ${baseLocation}`,
+                cuisineTag
+            });
+
+            // Backup query for variety if cuisine is specific
             if (cuisine) {
-                queries.push(`top rated ${cuisine}places to eat in ${baseLocation}`);
+                queries.push({
+                    query: `top rated ${cuisine}places to eat in ${baseLocation}`,
+                    cuisineTag
+                });
             }
         });
     }
 
     if (input.mustInclude) {
-        queries.push(`${input.mustInclude} in ${baseLocation}`);
+        queries.push({ query: `${input.mustInclude} in ${baseLocation}` });
     }
 
     // Deduplication Set
@@ -235,7 +242,7 @@ async function fetchCandidates(
     const safeQueries = queries;
     console.log(`[Compass] Fetching candidates for generic queries (Count: ${safeQueries.length}): ${JSON.stringify(safeQueries)}`);
 
-    const fetchForQuery = async (query: string, isExplicit: boolean = false) => {
+    const fetchForQuery = async (query: string, isExplicit: boolean = false, cuisineTag?: string) => {
         const url = `https://places.googleapis.com/v1/places:searchText`;
 
         // Strict Paris Bias
@@ -264,11 +271,11 @@ async function fetchCandidates(
 
             const data = await res.json();
             if (data.places) {
-                // Tag explicit results
-                if (isExplicit) {
-                    return data.places.map((p: any) => ({ ...p, is_locked_pick: true }));
-                }
-                return data.places;
+                return data.places.map((p: any) => ({
+                    ...p,
+                    ...(isExplicit ? { is_locked_pick: true } : {}),
+                    ...(cuisineTag ? { cuisine_match: cuisineTag } : {}),
+                }));
             }
 
             if (data.error) console.error(`[Compass] Places API Error for "${query}":`, data.error.message);
@@ -280,7 +287,9 @@ async function fetchCandidates(
         }
     };
 
-    const genericResultsPromise = Promise.all(safeQueries.map(q => fetchForQuery(q, false)));
+    const genericResultsPromise = Promise.all(
+        safeQueries.map(({ query, cuisineTag }) => fetchForQuery(query, false, cuisineTag))
+    );
 
     // ------------------------------------------------------
     // 3. Fetch Specific Candidates (Branch B)
@@ -337,10 +346,10 @@ function constructFormSystemPrompt(input: GenerateInput, planContext: any): stri
     }
 
     return `You are a strict Selection Engine for a Paris itinerary builder.
-    
+
     TASK:
     Select the best items from the provided "CANDIDATES" list to build a realistic itinerary.
-    
+
     RULES:
     1. You MUST ONLY select items from the "CANDIDATES" list.
     2. You MUST reference selected items by their exact "id".
@@ -349,6 +358,7 @@ function constructFormSystemPrompt(input: GenerateInput, planContext: any): stri
     5. Accommodate "Existing Items" (fix them in place) if present.
     6. MANDATORY: You MUST include items marked "is_locked_pick": true.
        - If a locked item exists for a category (e.g. Dinner), you MUST use it.
+    7. For meal slots with a specific cuisine, PREFER candidates where "cuisine_match" equals that cuisine (e.g. "vietnamese", "italian"). These were fetched specifically for that cuisine and are the most reliable match.
     ${requirements}
 
     OUTPUT FORMAT (Strict JSON):
@@ -410,10 +420,13 @@ function validateItinerary(items: ItineraryItem[], input: GenerateInput): { vali
                 if (meal.cuisine && meal.cuisine !== "Any") {
                     const reqCuisine = (meal.cuisine === "Other" ? "" : meal.cuisine).toLowerCase();
                     if (reqCuisine) {
-                        // The item MUST have this cuisine in tags or title
+                        // Primary: trust the tag set at fetch time (most reliable)
+                        const hasCuisineTag = (item.metadata?.cuisineMatch || "") === reqCuisine;
+                        // Fallback: check Google Places types and title (less reliable)
                         const content = (tags + " " + title).toLowerCase();
-                        if (!content.includes(reqCuisine)) {
-                            // console.log(`[Validation] Rejecting ${item.title} for ${meal.cuisine} (TAGS: ${tags})`);
+                        const hasTypeMatch = content.includes(reqCuisine);
+
+                        if (!hasCuisineTag && !hasTypeMatch) {
                             return false;
                         }
                     }
@@ -459,7 +472,8 @@ async function callOpenAI(
         name: c.displayName.text,
         rating: c.rating,
         tags: c.types ? c.types.slice(0, 3).join(", ") : "",
-        is_locked_pick: c.is_locked_pick // Pass the tag to LLM context
+        is_locked_pick: c.is_locked_pick,
+        cuisine_match: c.cuisine_match || undefined, // e.g. "vietnamese" — set at fetch time
     }));
 
     const defaultSystemPrompt = `You are a strict Selection Engine for a Paris itinerary builder.
@@ -477,6 +491,7 @@ async function callOpenAI(
        - If a locked item exists for a category (e.g. Dinner), you MUST use it.
        - These are venues specifically agreed upon in the chat.
     7. MEALS: If "preferences.meals" are present, you MUST select a suitable candidate for EACH requested meal type (e.g. Lunch, Dinner).
+       - For meals with a specific cuisine, PREFER candidates where "cuisine_match" equals that cuisine (e.g. "vietnamese", "italian").
        - Look at the candidate tags/types to ensure it matches.
 
     OUTPUT FORMAT (Strict JSON):
@@ -557,11 +572,12 @@ async function callOpenAI(
                     placeId: candidate.id,
                     rating: candidate.rating,
                     ratingsTotal: candidate.userRatingCount,
-                    // Metadata for debugging
+                    // Metadata for debugging and validation
                     metadata: {
                         source: item.source || (candidate.is_locked_pick ? "chat_locked" : "ai_suggested"),
                         requested_name: candidate.displayName.text,
-                        types: candidate.types
+                        types: candidate.types,
+                        cuisineMatch: candidate.cuisine_match, // propagated from fetch-time tag
                     }
                 });
             }
@@ -660,7 +676,8 @@ export async function generateCompassItinerary(planId: string, input: GenerateIn
             return {
                 error: {
                     type: "VALIDATION_ERROR",
-                    message: "Unable to generate a valid itinerary meeting all strict requirements. Please try loosening constraints or specific requests."
+                    message: "Couldn't satisfy all your requirements after 3 attempts. Try adjusting these:",
+                    details: lastErrors
                 }
             };
         }

@@ -217,6 +217,17 @@ export default function GenerateWithCompassModal({
                                 {error?.message || "Something went wrong. Please try again."}
                             </p>
 
+                            {error?.type === "VALIDATION_ERROR" && error.details && error.details.length > 0 && (
+                                <div className="mt-2 p-4 bg-amber-50 border border-amber-100 rounded-lg text-left w-full text-sm text-amber-800">
+                                    <ul className="list-disc pl-4 space-y-1">
+                                        {error.details.map((d: string, i: number) => (
+                                            <li key={i}>{d}</li>
+                                        ))}
+                                    </ul>
+                                    <p className="mt-3 text-xs text-amber-600">Try removing a specific cuisine, reducing meal stops, or using &quot;Any&quot; cuisine.</p>
+                                </div>
+                            )}
+
                             {error?.type === "OVERFLOW" && error.suggestions && (
                                 <div className="mt-4 p-4 bg-amber-50 rounded-lg text-left w-full text-sm text-amber-800">
                                     <p className="font-semibold mb-2">Suggestions:</p>

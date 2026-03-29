@@ -24,6 +24,7 @@ export type ItineraryItem = {
     source?: "chat_locked" | "ai_suggested" | "fallback";
     requested_name?: string;
     types?: string[];
+    cuisineMatch?: string; // cuisine tag set at fetch time (e.g. "vietnamese")
   };
 };
 
