@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, type FormEvent } from "react";
+import { useState, useMemo, useEffect, useRef, type FormEvent } from "react";
 import type { ItineraryItem } from "@/types/itinerary";
 import { saveItineraryItems } from "./actions";
 import { Button } from "@/app/ui/Button";
@@ -423,6 +423,31 @@ export default function ItineraryEditor({
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftItem | null>(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Autosave during reorder mode: debounced 1.5s after last drag
+  useEffect(() => {
+    if (!isReorderMode) return;
+
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+
+    autoSaveTimerRef.current = setTimeout(async () => {
+      setAutoSaveStatus('saving');
+      try {
+        await saveItineraryItems(planId, items);
+        setAutoSaveStatus('saved');
+        setTimeout(() => setAutoSaveStatus('idle'), 2000);
+      } catch (err) {
+        console.error("Autosave failed:", err);
+        setAutoSaveStatus('idle');
+      }
+    }, 1500);
+
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [items, isReorderMode, planId]);
 
   // Compute schedule whenever items change
   const scheduledBlocks = useMemo(
@@ -578,6 +603,9 @@ export default function ItineraryEditor({
   };
 
   const handleReorderDone = async () => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    setAutoSaveStatus('idle');
+
     const orderChanged =
       items.length !== reorderStartItems.length ||
       items.some((item, index) => item.id !== reorderStartItems[index]?.id);
@@ -591,6 +619,8 @@ export default function ItineraryEditor({
   };
 
   const handleReorderCancel = () => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    setAutoSaveStatus('idle');
     setItems([...reorderStartItems]);
     setIsReorderMode(false);
     setReorderStartItems([]);
@@ -606,8 +636,14 @@ export default function ItineraryEditor({
       {/* Controls Bar - Only show if not readOnly */}
       {!readOnly && (
         <div className="flex justify-between items-center mb-6">
-          <div className="text-sm text-zinc-500 font-medium flex items-center h-9">
+          <div className="text-sm text-zinc-500 font-medium flex items-center h-9 gap-2">
             {items.length > 0 ? `${items.length} activities planned` : "Start adding activities"}
+            {autoSaveStatus === 'saving' && (
+              <span className="text-xs text-zinc-400">Saving...</span>
+            )}
+            {autoSaveStatus === 'saved' && (
+              <span className="text-xs text-green-500">&#10003; Saved</span>
+            )}
           </div>
           <div className="flex items-center gap-3">
             {/* Reorder/Edit Toggle */}
