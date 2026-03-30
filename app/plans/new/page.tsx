@@ -126,6 +126,18 @@ export default function NewPlanPage() {
     }
 
     const id = (data as { id: string }).id;
+
+    await supabase.from("user_events").insert({
+      user_id: user.id,
+      event_type: "plan_created",
+      event_data: {
+        plan_id: id,
+        people_count: insertData.people_count,
+        has_title: !!formData.name.trim(),
+        via: "form",
+      },
+    });
+
     router.push(`/plan/${id}`);
   }
 

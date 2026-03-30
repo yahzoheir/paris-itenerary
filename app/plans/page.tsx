@@ -120,6 +120,13 @@ export default function PlansPage() {
     }
 
     const id = (data as { id: string }).id;
+
+    await supabase.from("user_events").insert({
+      user_id: user.id,
+      event_type: "plan_created",
+      event_data: { plan_id: id, people_count: 2, has_title: false, via: "blank" },
+    });
+
     window.location.href = `/plan/${id}`;
   }
 
@@ -157,6 +164,16 @@ export default function PlansPage() {
       setDeleteError(error.message);
       setIsDeleting(false);
       return;
+    }
+
+    // Log event
+    const { data: userRes2 } = await supabase.auth.getUser();
+    if (userRes2.user) {
+      await supabase.from("user_events").insert({
+        user_id: userRes2.user.id,
+        event_type: "plan_deleted",
+        event_data: { plan_id: deleteTargetId },
+      });
     }
 
     // Close modal

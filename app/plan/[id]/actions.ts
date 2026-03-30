@@ -31,7 +31,14 @@ export async function saveItineraryItems(planId: string, items: ItineraryItem[])
     throw new Error("Update blocked. You may not be the owner or the plan doesn't exist.");
   }
 
-  // 3. Revalidate
+  // 3. Log event
+  await supabase.from("user_events").insert({
+    user_id: auth.user.id,
+    event_type: "itinerary_saved",
+    event_data: { plan_id: planId, items_count: items.length },
+  });
+
+  // 4. Revalidate
   revalidatePath(`/plan/${planId}`);
   return { ok: true };
 }

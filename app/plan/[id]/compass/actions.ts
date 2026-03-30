@@ -667,6 +667,18 @@ export async function generateCompassItinerary(planId: string, input: GenerateIn
         return { error: result.error, usage: rateLimit };
     }
 
+    // Log AI generation event
+    await supabase.from("user_events").insert({
+        user_id: user.id,
+        event_type: "ai_generated",
+        event_data: {
+            plan_id: planId,
+            items_count: result.items.length,
+            city: plan.city || "Paris",
+            mode: input.chatPrompt ? "chat" : "form",
+        },
+    });
+
     return {
         items: result.items,
         usage: rateLimit
